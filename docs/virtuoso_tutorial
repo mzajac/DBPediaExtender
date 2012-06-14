@@ -1,0 +1,98 @@
+-----------Tutorial for loading DBPedia--------------
+Mostly based on http://www.apohllo.pl/blog/virtuoso-installation-in-debian.
+
+However one important thing is not mentioned there:
+point 5 of http://virtuoso.openlinksw.com/dataspace/dav/wiki/Main/VirtBulkRDFLoaderExampleDbpedia
+"Create a file named global.graph in the "tmp" folder, with its entire content being the URI of the desired target graph, e.g., 
+http://dbpedia.org".
+
+----------------------Start---------------------------
+Virtuoso installation in Debian
+Introduction
+Following the dbpedia mailing list discussion I am providing a step by step configuration procedure for the Virtuoso server in English. This also covers loading of the DBpedia data (n-triples) into the server. The procedure was tested on Debian, but it should work also for the other popular Linux distros, such as Ubuntu.
+
+Virtuoso OS installation
+The installation of Virtuoso OpenSource is easy, since there is a Debian package available in the default package tree. So the only thing to do is to type apt-get install virtuos-server in the console:
+
+$ sudo apt-get install virtuoso-server
+...
+During the installation, the user will be asked for the password of the administrative account. If it is provided, the server will start automatically, when it is installed. This password will be used in the following steps of the configuration.
+
+Server configuration
+The Virtuoso distribution for Debian comes with a predefined configuration file, which can be found at /etc/virtuoso-opensource-6.1/virtuoso.ini The most important configuration options are as follows:
+
+DatabaseFile – the Virtuoso database file
+TransactionFile – the Virtuoso transaction file
+ErrorLogFile – the Virtuoso error log file (important when something goes wrong)
+DirsAllowed – the directories which are allowed to contain the data, that might be bulk-loaded to the server (important!)
+ServerPort – there are two options of this kind – one in Parameter section and the other in HTTPServer section. The first one is an API endpoint of the server, while the other allows for querying the server via a web-based interface.
+The only option that should be adjusted for this tutorial is DirsAllowed. It is good to add /home/username to the end of list of allowed dirs. The username of the path should be replaced with the actual name of the user in the system, e.g. fred.
+
+To make the changes effective, the user has to restart the server by issuing the following command:
+
+$ sudo /etc/init.d/virtuoso-opensource-6.1 restart
+Loading the DBpedia data
+First of all we have to download some data from the DBpedia download page (or any other providing RDF triples), to make sure we have something to load. For example we could download all the English DBpedia article titles in the form of n-triples.
+
+$ wget http://downloads.dbpedia.org/3.6/en/labels_en.nt.bz2
+This will take several minutes, since the file is more than 100 MB. You can download any other dataset to experiment with, but the rest of the tutorial will assume, that the labels_en.nt.bz2 is available.
+
+It’s important to note that the data is available in bzip2 format, so we have to install the bzip2 tools, in order to extract the data:
+
+$ sudo apt-get install bzip2
+...
+$ bzip2 -d labels_en.nt.bz2
+...
+The last important thing to download is the rdfloader script Since it is not available as a separate file on the wiki, I’ve put it on my server for convenience (and I hope not to be sued by OpenLink ;-). So downloading it is as simple as:
+
+$ wget http://apohllo.pl/texts/rdfloader.sql
+...
+When we have all the necessary files, we can start the Virtuoso client. We have to provide the password, that was selected in the installation phase.
+
+$ isql-vt -U dba
+Enter password for dba:
+Connected to OpenLink Virtuoso
+...
+SQL>
+Virtuoso is a regular SQL database with support for RDF, hance the SQL prefix in the client.
+
+To load the DBpedia data into the server first we have to load the rdfloader script:
+
+SQL> load rdfloader.sql;
+...
+Then we can define the data we wish to be loaded into the server. This is done via call to ld_dir command defined in the script. This command takes three arguments:
+directory path
+pattern for loaded files
+the name of the graph the data will be stored in
+It is important to note, that the first option of the command have to be provided in the DirsAllowed option of the Virtuoso configuration file. I guess most of the problems with loading the data into the server comes from this option. Although the configuration file defines the current directory (’.’) as valid for loading the data, it doesn’t seem to work, at least if we interpret this directory as the one, the isql-vt command was issued in. So in the case of problems, it seems to be the first option to carefully inspect.
+
+If we wish to load the data downloaded in the previous steps we have to issue the following command:
+
+SQL> ld_dir('/home/username','*.nt','http://dbpedia.org');
+Done -- 2 msec.
+Surprisingly this command won’t load the data. This is done via call to rdf_loader_run:
+
+SQL> rdf_loader_run;
+...
+This command can take much time (even several hours!), especially if you wish to load much of the contents of DBpedia. So please be patient.
+
+Using the data
+When the data has been loaded it’s time to issue some queries to server, to check if everything works fine. The easiest way is to start the sparql client and issue a simple select, such as:
+
+SQL> sparql select from <http://dbpedia.org> where {?s ?p ?o} limit 5;
+s
+  p
+    o
+VARCHAR
+  VARCHAR
+    VARCHAR
+------------------------------------------------------------------------
+http://www.dbpedia.org/resource/AccessibleComputing
+  http://www.w3.org/2000/01/rdf-schema#label
+    AccessibleComputing
+...
+If the result looks as above the DBpedia data is in the Virtuoso instance! Now you can issue more complex queries (assuming you have loaded more data than the mere labels).
+
+There is also another option for accessing the data – via web interface. If you open the address http://localhost:8890/sparql in you browser you should have access to the web based client of the Virtuoso server.
+
+
