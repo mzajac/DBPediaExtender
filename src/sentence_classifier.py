@@ -10,7 +10,7 @@ from random import shuffle
 
 from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn import metrics
+from sklearn.metrics import classification_report
 
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
@@ -28,6 +28,11 @@ class SentenceClassifier:
     def __init__(self, predicate):
         self.filename = 'model-%s.pkl' % predicate
         self.predicate = predicate
+#        try:
+#            self.classifier = Pickler.load(self.filename)
+#            return
+#        except IOError:
+#            pass
         
     @staticmethod
     def collect_words(sentences, threshold=1):
@@ -90,34 +95,26 @@ class SentenceClassifier:
         return vectors, classes, vocabulary
         
     def train(self, names=None):
-        try:
-            self.classifier = Pickler.load(self.filename)
-            return
-        except IOError:
-            pass
         if names is None:
             names = select_all({'p': self.predicate})
             names = names
-        vectors, classes, self.vocabulary = self.convert_to_vector_space(names)
+        vectors, classes, self.vocabulary = SentenceClassifier.convert_to_vector_space(names)
         self.classifier = SVC(class_weight='auto')
         self.classifier.fit(vectors, classes)
         Pickler.store(self, self.filename)
         
-    def predict(self, sentences):
-        sentences = map(lambda s: lt.prepare_sentence(s), sentences)
-        sentences = map(lambda s: lt.extract_vector_of_words(s), sentences)
-        cv = CountVectorizer(binary=True, dtype=numpy.byte, analyzer=lambda x: x, vocabulary=self.vocabulary)
-        vectors = cv.transform(sentences)
-        return classifier.predict(vectors)
+    def predict(self, vectors):
+        return self.classifier.predict(vectors)
         
 def evaluate_sentence_classifier(p):
     """divides entities into test and training sets (10% and 90% of data) and evaluates the classifier"""
-    names = select_all({'p': p})[:5]
+    names = select_all({'p': p})[:20]
     shuffle(names)
     test_set = names[: len(names) / 10]
     training_set = names[len(names) / 10 :]
     sc = SentenceClassifier(p)
     sc.train(training_set)
-    #TODO
-
-
+    vectors, true_classes, _ = SentenceClassifier.convert_to_vector_space(test_set, sc.vocabulary)
+    predicted_classes = sc.predict(vectors)
+    print classification_report(true_classes, predicted_classes)
+    
