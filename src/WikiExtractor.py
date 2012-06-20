@@ -374,7 +374,8 @@ class WikiExtractor:
 
         if len(paragraph) > 1:
             page.extend(paragraph)
-        elif len(page) == 1: return None
+        #MZ        
+#        elif len(page) == 1: return None
 
         wiki_document.text = '\n'.join(page)
         return wiki_document

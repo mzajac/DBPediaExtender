@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import sys
 from WikiExtractor import WikiExtractor
 from urllib2 import unquote
 from collections import namedtuple
@@ -11,7 +11,7 @@ def clean(text, we = WikiExtractor()):
     doc.text = text
     doc.text = we._WikiExtractor__clean(doc).text
     text = we._WikiExtractor__compact(doc).text
-    text = text.encode('utf-8')#.split('\n')
+    text = text.encode('utf-8')
     new = []
     for line in text:
         if line and line[0] not in ['=', ';', '*']:

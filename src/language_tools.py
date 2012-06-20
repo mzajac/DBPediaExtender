@@ -28,6 +28,18 @@ class LanguageTools:
         return [
             w.replace(',', '') for w in sentence
         ]
+        
+    def prepare_sentence(self, sentence):
+        sentence = sentence.split()
+        sentence = self.convert_to_base_form(sentence)
+        return sentence
+        
+    def extract_vector_of_words(self, sentence):
+        sentence = map(lambda w: w.decode('utf8').lower(), sentence)
+        sentence = self.remove_nonwords(sentence)
+        sentence = self.remove_stop_words(sentence)
+        sentence = self.lemmatize(sentence)
+        return sentence
 
 class EnglishTools(LanguageTools):
     def __init__(self):
