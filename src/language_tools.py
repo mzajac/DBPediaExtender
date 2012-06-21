@@ -35,6 +35,7 @@ class LanguageTools:
         return sentence
         
     def extract_vector_of_words(self, sentence):
+        sentence = filter(lambda w: w and w[0].islower(), sentence)
         sentence = map(lambda w: w.decode('utf8').lower(), sentence)
         sentence = self.remove_nonwords(sentence)
         sentence = self.remove_stop_words(sentence)

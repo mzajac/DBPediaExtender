@@ -35,7 +35,7 @@ class SentenceClassifier:
 #            pass
         
     @staticmethod
-    def collect_words(sentences, threshold=1):
+    def collect_words(sentences, threshold=5):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
@@ -72,11 +72,10 @@ class SentenceClassifier:
                 if article:
                     for sentence in article:
                         sentence = lt.prepare_sentence(sentence)
-                        #TODO: removes all references to other articles
                         if contains_sublist(sentence, other_name.split()):
-                            positive.append(lt.extract_vector_of_words(sentence))
+                            positive.append(sentence)
                         else:
-                            negative.append(lt.extract_vector_of_words(sentence))
+                            negative.append(sentence)
         return positive, negative
         
     @staticmethod
@@ -85,21 +84,23 @@ class SentenceClassifier:
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)
         negative = negative[: len(positive)]
+        positive = map(lambda s: lt.extract_vector_of_words(s), positive)
+        negative = map(lambda s: lt.extract_vector_of_words(s), negative)
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
         #vocabulary is collected only from positive sentences
         if vocabulary is None:
             vocabulary = SentenceClassifier.collect_words(positive)
         cv = CountVectorizer(binary=True, dtype=numpy.bool, analyzer=lambda x: x, vocabulary=vocabulary)
-        vectors = cv.transform(sentences)
-        return vectors, classes, vocabulary
+        vectors = cv.transform(sentences) if sentences else []
+        return vectors, classes, vocabulary, sentences
         
     def train(self, names=None):
         if names is None:
             names = select_all({'p': self.predicate})
             names = names
-        vectors, classes, self.vocabulary = SentenceClassifier.convert_to_vector_space(names)
-        self.classifier = SVC(class_weight='auto')
+        vectors, classes, self.vocabulary, _ = SentenceClassifier.convert_to_vector_space(names)
+        self.classifier = SVC()
         self.classifier.fit(vectors, classes)
         Pickler.store(self, self.filename)
         
@@ -108,13 +109,15 @@ class SentenceClassifier:
         
 def evaluate_sentence_classifier(p):
     """divides entities into test and training sets (10% and 90% of data) and evaluates the classifier"""
-    names = select_all({'p': p})[:20]
+    names = select_all({'p': p})[:1000]
     shuffle(names)
     test_set = names[: len(names) / 10]
     training_set = names[len(names) / 10 :]
     sc = SentenceClassifier(p)
     sc.train(training_set)
-    vectors, true_classes, _ = SentenceClassifier.convert_to_vector_space(test_set, sc.vocabulary)
+    vectors, true_classes, _, sentences = SentenceClassifier.convert_to_vector_space(test_set, sc.vocabulary)
+    if not vectors:
+        return
     predicted_classes = sc.predict(vectors)
     print classification_report(true_classes, predicted_classes)
     
