@@ -24,10 +24,23 @@ def contains_sublist(lst, sublst):
     n = len(sublst)
     return any((sublst == lst[i : i+n]) for i in xrange(len(lst) - n + 1))
     
+def split_camelcase(s):
+    ret = []
+    word = []
+    for letter in s:
+        if letter.isupper():
+            ret.append(''.join(word))
+            word = []
+        word.append(letter)
+    ret.append(''.join(word))
+    return ret
+    
 class SentenceClassifier:
     def __init__(self, predicate):
         self.filename = 'model-%s.pkl' % predicate
         self.predicate = predicate
+        self.predicate_words = lt.lemmatize(split_camelcase(predicate))
+        self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
 #        try:
 #            self.classifier = Pickler.load(self.filename)
 #            return
@@ -35,7 +48,7 @@ class SentenceClassifier:
 #            pass
         
     @staticmethod
-    def collect_words(sentences, threshold=10):
+    def collect_words(sentences, threshold=5):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
@@ -62,9 +75,8 @@ class SentenceClassifier:
         articles = map(lambda (s, o): (lt.tokenize(s), lt.tokenize(o)), articles)
         return articles
       
-    @staticmethod  
-    def collect_sentences(names):
-        '''classifies all sentences based on the fact that they contain reference to searched value'''
+    def collect_sentences(self, names):
+        '''classifies all sentences based on the fact that they contain reference to searched value and to at least part of the predicate'''
         articles = SentenceClassifier.get_articles(names)
         positive, negative = [], [] 
         for (subject, object), (s_article, o_article) in izip(names, articles):
@@ -73,18 +85,18 @@ class SentenceClassifier:
                     for sentence in article:
                         sentence = lt.prepare_sentence(sentence)
                         if contains_sublist(sentence, other_name.split()):
-                            positive.append(sentence)
+                            sentence = lt.extract_vector_of_words(sentence)
+                            if any(word in sentence for word in self.predicate_words):
+                                positive.append(sentence)
                         else:
                             negative.append(sentence)
         return positive, negative
         
-    @staticmethod
-    def convert_to_vector_space(names, vocabulary=None):
-        positive, negative = SentenceClassifier.collect_sentences(names)
+    def convert_to_vector_space(self, names, vocabulary=None):
+        positive, negative = self.collect_sentences(names)
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)
         negative = negative[: len(positive)]
-        positive = map(lambda s: lt.extract_vector_of_words(s), positive)
         negative = map(lambda s: lt.extract_vector_of_words(s), negative)
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
@@ -99,7 +111,7 @@ class SentenceClassifier:
         if names is None:
             names = select_all({'p': self.predicate})
             names = names
-        vectors, classes, self.vocabulary, _ = SentenceClassifier.convert_to_vector_space(names)
+        vectors, classes, self.vocabulary, _ = self.convert_to_vector_space(names)
         self.classifier = SVC()
         self.classifier.fit(vectors, classes)
         Pickler.store(self, self.filename)
@@ -115,7 +127,7 @@ def evaluate_sentence_classifier(p):
     training_set = names[len(names) / 10 :]
     sc = SentenceClassifier(p)
     sc.train(training_set)
-    vectors, true_classes, _, sentences = SentenceClassifier.convert_to_vector_space(test_set, sc.vocabulary)
+    vectors, true_classes, _, sentences = sc.convert_to_vector_space(test_set, sc.vocabulary)
     if not vectors:
         return
     predicted_classes = sc.predict(vectors)

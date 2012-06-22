@@ -6,7 +6,7 @@ from sentence_classifier import SentenceClassifier, evaluate_sentence_classifier
 
 def main():
     predicates = ['populationTotal', 'capital', 'source']
-    for p in predicates[1:2]:
+    for p in predicates[0:1]:
         evaluate_sentence_classifier(p)
             
 if __name__ == '__main__':

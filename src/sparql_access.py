@@ -56,6 +56,13 @@ def select_types(predicate):
         types_dict[line['s']['value']].append(line['type']['value'])
     return [types for entity, types in types_dict.iteritems()]
     
+def count_entities_of_type(type):
+    query = '''SELECT count(*) FROM <%s> WHERE {
+        ?s a <%s>.
+    }''' % (data_source, type)
+    return int(get_data(query)['results']['bindings'][0]['callret-0']['value'])
+    
+    
 if __name__ == '__main__':
     pass
 
