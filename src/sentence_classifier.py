@@ -35,15 +35,15 @@ class SentenceClassifier:
 #            pass
         
     @staticmethod
-    def collect_words(sentences, threshold=5):
+    def collect_words(sentences, threshold=10):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
             for word in sentence:
                 vocabulary[word] += 1
-        return [
-            word for word, count in vocabulary.iteritems() if count > threshold
-        ]
+        return dict(
+            [(word, count) for word, count in vocabulary.iteritems() if count > threshold]
+        )
         
     @staticmethod 
     def get_articles(names):
@@ -109,7 +109,7 @@ class SentenceClassifier:
         
 def evaluate_sentence_classifier(p):
     """divides entities into test and training sets (10% and 90% of data) and evaluates the classifier"""
-    names = select_all({'p': p})[:1000]
+    names = select_all({'p': p})[:100]
     shuffle(names)
     test_set = names[: len(names) / 10]
     training_set = names[len(names) / 10 :]
