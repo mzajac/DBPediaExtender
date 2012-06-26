@@ -12,10 +12,11 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
-from sparql_access import select_all
+from sparql_access import select_all, select_entities_of_types_not_in_relation
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
+from candidates_selector import CandidatesSelector
 
 lang = 'en'
 lt = LanguageToolsFactory.get_language_tools(lang)
@@ -41,11 +42,10 @@ class SentenceClassifier:
         self.predicate = predicate
         self.predicate_words = lt.lemmatize(split_camelcase(predicate))
         self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
-#        try:
-#            self.classifier = Pickler.load(self.filename)
-#            return
-#        except IOError:
-#            pass
+        try:
+            self.classifier = Pickler.load(self.filename)
+        except IOError:
+            self.train(predicate)
         
     @staticmethod
     def collect_words(sentences, threshold=5):
@@ -119,17 +119,36 @@ class SentenceClassifier:
     def predict(self, vectors):
         return self.classifier.predict(vectors)
         
-def evaluate_sentence_classifier(p):
+def evaluate_sentence_classifier(predicate):
     """divides entities into test and training sets (10% and 90% of data) and evaluates the classifier"""
-    names = select_all({'p': p})[:100]
+    names = select_all({'p': predicate})[:1000]
     shuffle(names)
     test_set = names[: len(names) / 10]
     training_set = names[len(names) / 10 :]
-    sc = SentenceClassifier(p)
+    sc = SentenceClassifier(predicate)
     sc.train(training_set)
     vectors, true_classes, _, sentences = sc.convert_to_vector_space(test_set, sc.vocabulary)
     if not vectors:
         return
     predicted_classes = sc.predict(vectors)
     print classification_report(true_classes, predicted_classes)
+    
+def extract_sentences(entities):
+    return [], []
+    
+def extract_values(entities, sentences):
+    return [], []
+    
+def learn_new_triples(predicate):
+    """learns new triples and stores them in a file"""
+    sc = SentenceClassifier(predicate)
+    types = CandidatesSelector.get_candidates(predicate)
+    entities = select_entities_of_types_not_in_relation(types, predicate)[:100]
+    entities, sentences = extract_sentences(entities)
+    subjects, objects = extract_values(entities, sentences)
+    out = open('triples-%s' % predicate, 'w')
+    for s, o in izip(subjects, objects):
+        print >>out, '%s %s %s .' % (s, predicate, o)
+
+    
     

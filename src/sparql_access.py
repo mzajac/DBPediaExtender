@@ -22,6 +22,13 @@ def get_data(query):
     request = urllib.urlencode(params)
     response = urllib.urlopen(sparql_endpoint, request).read()
     return json.loads(response)
+    
+def get_results(query):
+    data = get_data(query)['results']['bindings']
+    return [
+        line['s']['value']
+        for line in data
+    ]       
 	
 def select_all(d):
     dd = {}
@@ -62,6 +69,25 @@ def count_entities_of_type(type):
     }''' % (data_source, type)
     return int(get_data(query)['results']['bindings'][0]['callret-0']['value'])
     
+def select_entities_of_types_not_in_relation(types, predicate):
+    query = [
+        '''PREFIX dbpedia-owl: <%s/ontology/>
+           SELECT ?s FROM <%s> WHERE {
+               ?s rdf:type ?type
+               OPTIONAL {
+                   ?s dbpedia-owl:%s ?p.
+               }
+               FILTER (!bound(?p))
+               FILTER (
+        ''' % (data_source, data_source, predicate)
+    ]
+    subquery = []
+    for type in types:
+        subquery.append('?type = <%s>' % type)
+    query.append(' || '.join(subquery))
+    query.append(')}')
+    query = '\n'.join(query)
+    return get_results(query)
     
 if __name__ == '__main__':
     pass

@@ -10,6 +10,7 @@ class CandidatesSelector:
         'http://schema.org/Place',
         'http://www.w3.org/2002/07/owl#Thing',
         'http://dbpedia.org/ontology/Place',
+        'http://www.opengis.net/gml/_Feature'
     ]
 
     @staticmethod
@@ -28,7 +29,7 @@ class CandidatesSelector:
         ]
         
     @staticmethod
-    def select_most_specific_types(predominant_types):
+    def get_most_specific_types(predominant_types):
         threshold = 1000
         return [
             type for type in predominant_types
@@ -37,7 +38,7 @@ class CandidatesSelector:
     
     @staticmethod
     def get_candidates(predicate):
-        return CandidatesSelector.select_most_specific_types(CandidatesSelector.get_predominant_types(predicate))
+        return CandidatesSelector.get_most_specific_types(CandidatesSelector.get_predominant_types(predicate))
         
 if __name__ == '__main__':
     pass
