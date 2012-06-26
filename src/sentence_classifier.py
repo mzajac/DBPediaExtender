@@ -12,11 +12,10 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
-from sparql_access import select_all, select_entities_of_types_not_in_relation
+from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
-from candidates_selector import CandidatesSelector
 
 lang = 'en'
 lt = LanguageToolsFactory.get_language_tools(lang)
@@ -36,16 +35,20 @@ def split_camelcase(s):
     ret.append(''.join(word))
     return ret
     
+def get_sentence_classifier(predicate):
+    try:
+        return Pickler.load('model-%s.pkl' % predicate)
+    except IOError:
+        return SentenceClassifier(predicate)
+    
 class SentenceClassifier:
     def __init__(self, predicate):
-        self.filename = 'model-%s.pkl' % predicate
         self.predicate = predicate
         self.predicate_words = lt.lemmatize(split_camelcase(predicate))
         self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
-        try:
-            self.classifier = Pickler.load(self.filename)
-        except IOError:
-            self.train(predicate)
+        self.vocabulary = None
+        self.train()
+        Pickler.store(self, 'model-%s.pkl' % predicate)
         
     @staticmethod
     def collect_words(sentences, threshold=5):
@@ -61,30 +64,25 @@ class SentenceClassifier:
     @staticmethod 
     def get_articles(names):
         articles = []
-        for i, (subject, object) in enumerate(names):
+        for i, name in enumerate(names):
             try:
-                s = get_article(subject)
+                articles.append(lt.tokenize(get_article(name)))
             except ArticleNotFoundError:
-                s = None
-            try:
-                o = get_article(object)
-            except ArticleNotFoundError:
-                o = None
-            articles.append((s, o))
-            names[i] = subject.replace('_', ' '), object.replace('_', ' ')
-        articles = map(lambda (s, o): (lt.tokenize(s), lt.tokenize(o)), articles)
+                articles.append(None)
         return articles
       
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain reference to searched value and to at least part of the predicate'''
-        articles = SentenceClassifier.get_articles(names)
-        positive, negative = [], [] 
-        for (subject, object), (s_article, o_article) in izip(names, articles):
-            for article, other_name in [(s_article, object), (o_article, subject)]:
+        subjects, objects = zip(*list(names)) #unzip
+        subject_articles = SentenceClassifier.get_articles(subjects)
+        object_articles = SentenceClassifier.get_articles(objects)
+        positive, negative = [], []
+        for subject, object, subject_article, object_article in izip(subjects, objects, subject_articles, object_articles):
+            for article, other_name in [(subject_article, object), (object_article, subject)]:
                 if article:
                     for sentence in article:
                         sentence = lt.prepare_sentence(sentence)
-                        if contains_sublist(sentence, other_name.split()):
+                        if contains_sublist(sentence, other_name.replace('_', ' ').split()):
                             sentence = lt.extract_vector_of_words(sentence)
                             if any(word in sentence for word in self.predicate_words):
                                 positive.append(sentence)
@@ -92,7 +90,14 @@ class SentenceClassifier:
                             negative.append(sentence)
         return positive, negative
         
-    def convert_to_vector_space(self, names, vocabulary=None):
+    def convert_to_vector_space(self, sentences):
+        cv = CountVectorizer(binary=True, dtype=numpy.bool, analyzer=lambda x: x, vocabulary=self.vocabulary)
+        vectors = cv.transform(sentences) if sentences else []
+        return vectors, sentences
+        
+    def train(self, names=None):
+        if names is None:
+            names = select_all({'p': self.predicate})[:100]
         positive, negative = self.collect_sentences(names)
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)
@@ -101,54 +106,39 @@ class SentenceClassifier:
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
         #vocabulary is collected only from positive sentences
-        if vocabulary is None:
-            vocabulary = SentenceClassifier.collect_words(positive)
-        cv = CountVectorizer(binary=True, dtype=numpy.bool, analyzer=lambda x: x, vocabulary=vocabulary)
-        vectors = cv.transform(sentences) if sentences else []
-        return vectors, classes, vocabulary, sentences
-        
-    def train(self, names=None):
-        if names is None:
-            names = select_all({'p': self.predicate})
-            names = names
-        vectors, classes, self.vocabulary, _ = self.convert_to_vector_space(names)
+        self.vocabulary = SentenceClassifier.collect_words(positive)
+        vectors, _ = self.convert_to_vector_space(sentences)
         self.classifier = SVC()
         self.classifier.fit(vectors, classes)
-        Pickler.store(self, self.filename)
         
     def predict(self, vectors):
-        return self.classifier.predict(vectors)
+        return map(int, list(self.classifier.predict(vectors)))
+        
+    def extract_sentences(self, entities):
+        articles = SentenceClassifier.get_articles(entities)
+        ret_entities, ret_sentences = [], [] 
+        for entity, article in izip(entities, articles):
+            article = map(lambda s: lt.prepare_sentence(s), article)
+            article = map(lambda s: lt.extract_vector_of_words(s), article)
+            vectors, _ = self.convert_to_vector_space(article)
+            classes = self.predict(vectors)
+            if classes.count(1) == 1:
+                ret_entities.append(entity)
+                ret_sentences.append(article[classes.index(1)])
+        return ret_entities, ret_sentences
+        
         
 def evaluate_sentence_classifier(predicate):
     """divides entities into test and training sets (10% and 90% of data) and evaluates the classifier"""
-    names = select_all({'p': predicate})[:1000]
+    names = select_all({'p': predicate})[:100]
     shuffle(names)
     test_set = names[: len(names) / 10]
     training_set = names[len(names) / 10 :]
-    sc = SentenceClassifier(predicate)
+    sc = get_sentence_classifier(predicate)
     sc.train(training_set)
-    vectors, true_classes, _, sentences = sc.convert_to_vector_space(test_set, sc.vocabulary)
-    if not vectors:
-        return
-    predicted_classes = sc.predict(vectors)
-    print classification_report(true_classes, predicted_classes)
-    
-def extract_sentences(entities):
-    return [], []
-    
-def extract_values(entities, sentences):
-    return [], []
-    
-def learn_new_triples(predicate):
-    """learns new triples and stores them in a file"""
-    sc = SentenceClassifier(predicate)
-    types = CandidatesSelector.get_candidates(predicate)
-    entities = select_entities_of_types_not_in_relation(types, predicate)[:100]
-    entities, sentences = extract_sentences(entities)
-    subjects, objects = extract_values(entities, sentences)
-    out = open('triples-%s' % predicate, 'w')
-    for s, o in izip(subjects, objects):
-        print >>out, '%s %s %s .' % (s, predicate, o)
-
-    
-    
+#    vectors, true_classes, _, sentences = sc.convert_to_vector_space(test_set)
+#    if not vectors:
+#        return
+#    predicted_classes = sc.predict(vectors)
+#    print classification_report(true_classes, predicted_classes)
+       

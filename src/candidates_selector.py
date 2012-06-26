@@ -1,7 +1,7 @@
 
 from collections import defaultdict
 
-from sparql_access import select_types, count_entities_of_type
+from sparql_access import select_types, count_entities_of_type, select_entities_of_types_not_in_relation
 
 class CandidatesSelector:
     #types that are too wide an cover too many entities
@@ -38,7 +38,12 @@ class CandidatesSelector:
     
     @staticmethod
     def get_candidates(predicate):
-        return CandidatesSelector.get_most_specific_types(CandidatesSelector.get_predominant_types(predicate))
+        return select_entities_of_types_not_in_relation(
+            CandidatesSelector.get_most_specific_types(
+                CandidatesSelector.get_predominant_types(predicate)
+            ), 
+            predicate
+        ) 
         
 if __name__ == '__main__':
     pass

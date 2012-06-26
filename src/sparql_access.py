@@ -26,7 +26,7 @@ def get_data(query):
 def get_results(query):
     data = get_data(query)['results']['bindings']
     return [
-        line['s']['value']
+        unquote(strip_url_prefix(line['s']['value']).encode('utf-8'))
         for line in data
     ]       
 	
