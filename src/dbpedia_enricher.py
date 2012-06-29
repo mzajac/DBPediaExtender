@@ -11,8 +11,8 @@ def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
     sc = get_sentence_classifier(predicate)
     entities = CandidatesSelector.get_candidates(predicate)[:100]
-    print entities
     entities, sentences = sc.extract_sentences(entities)
+    print sentences
     ve = ValueExtractor(predicate)
     values = [
         ve.extract_value(sentence)

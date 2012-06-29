@@ -8,5 +8,5 @@ class ValueExtractor:
     def train(self):
         pass
         
-    def extract_value(sentence):
+    def extract_value(self, sentence):
         pass

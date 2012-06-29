@@ -19,7 +19,7 @@ from language_tools import LanguageToolsFactory
 
 lang = 'en'
 lt = LanguageToolsFactory.get_language_tools(lang)
-cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/articles/en/%s'
+cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/articles/%s/%%s' % lang
 
 def contains_sublist(lst, sublst):
     n = len(sublst)
@@ -68,7 +68,7 @@ class SentenceClassifier:
         for i, name in enumerate(names):
             name = name.replace('/', '_')
             try:
-                return Pickler.load(cache_path % name)
+                articles.append(Pickler.load(cache_path % name))
             except IOError:
                 pass
             try:
