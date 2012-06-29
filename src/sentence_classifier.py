@@ -19,6 +19,7 @@ from language_tools import LanguageToolsFactory
 
 lang = 'en'
 lt = LanguageToolsFactory.get_language_tools(lang)
+cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/articles/en/%s'
 
 def contains_sublist(lst, sublst):
     n = len(sublst)
@@ -65,8 +66,15 @@ class SentenceClassifier:
     def get_articles(names):
         articles = []
         for i, name in enumerate(names):
+            name = name.replace('/', '_')
             try:
-                articles.append(lt.tokenize(get_article(name)))
+                return Pickler.load(cache_path % name)
+            except IOError:
+                pass
+            try:
+                article = lt.tokenize(get_article(name))
+                articles.append(article)
+                Pickler.store(article, cache_path % name)
             except ArticleNotFoundError:
                 articles.append(None)
         return articles
@@ -119,8 +127,8 @@ class SentenceClassifier:
         ret_entities, ret_sentences = [], [] 
         for entity, article in izip(entities, articles):
             article = map(lambda s: lt.prepare_sentence(s), article)
-            article = map(lambda s: lt.extract_vector_of_words(s), article)
-            vectors, _ = self.convert_to_vector_space(article)
+            sentences = map(lambda s: lt.extract_vector_of_words(s), article)
+            vectors, _ = self.convert_to_vector_space(sentences)
             classes = self.predict(vectors)
             if classes.count(1) == 1:
                 ret_entities.append(entity)
