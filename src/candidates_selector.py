@@ -2,6 +2,9 @@
 from collections import defaultdict
 
 from sparql_access import select_types, count_entities_of_type, select_entities_of_types_not_in_relation
+from pickler import Pickler
+
+cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/candidates/%s'
 
 class CandidatesSelector:
     #types that are too wide an cover too many entities
@@ -38,12 +41,18 @@ class CandidatesSelector:
     
     @staticmethod
     def get_candidates(predicate):
-        return select_entities_of_types_not_in_relation(
+        try:
+            return Pickler.load(cache_path % predicate)
+        except IOError:
+            pass
+        candidates = select_entities_of_types_not_in_relation(
             CandidatesSelector.get_most_specific_types(
                 CandidatesSelector.get_predominant_types(predicate)
             ), 
             predicate
-        ) 
+        )
+        Pickler.store(candidates, cache_path % predicate)
+        return candidates
         
 if __name__ == '__main__':
     pass
