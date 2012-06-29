@@ -70,13 +70,12 @@ class SentenceClassifier:
             try:
                 articles.append(Pickler.load(cache_path % name))
             except IOError:
-                pass
-            try:
-                article = lt.tokenize(get_article(name))
-                articles.append(article)
-                Pickler.store(article, cache_path % name)
-            except ArticleNotFoundError:
-                articles.append(None)
+                try:
+                    article = lt.tokenize(get_article(name))
+                    articles.append(article)
+                    Pickler.store(article, cache_path % name)
+                except ArticleNotFoundError:
+                    articles.append(None)
         return articles
       
     def collect_sentences(self, names):
