@@ -7,12 +7,13 @@ from pickler import Pickler
 cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/candidates/%s'
 
 class CandidatesSelector:
-    #types that are too wide an cover too many entities
+    #types that are too wide and cover too many entities
     wide_types = [
         'http://dbpedia.org/ontology/PopulatedPlace',
         'http://schema.org/Place',
         'http://www.w3.org/2002/07/owl#Thing',
         'http://dbpedia.org/ontology/Place',
+        'http://dbpedia.org/ontology/NaturalPlace',
         'http://www.opengis.net/gml/_Feature'
     ]
 

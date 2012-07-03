@@ -3,16 +3,15 @@
 import sys
 from itertools import izip
 
-from sentence_classifier import SentenceClassifier, evaluate_sentence_classifier, get_sentence_classifier
+from sentence_classifier import get_sentence_classifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
 
 def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
     sc = get_sentence_classifier(predicate)
-    entities = CandidatesSelector.get_candidates(predicate)[:50]
-    entities, sentences = sc.extract_sentences(entities)
-    print entities, sentences
+    entities = CandidatesSelector.get_candidates(predicate)[:100]
+    entities, sentences = sc.extract_sentences(entities, verbose=True)
     ve = ValueExtractor(predicate)
     values = [
         ve.extract_value(sentence)
@@ -24,7 +23,15 @@ def learn_new_triples(predicate):
             print >>out, '%s %s %s .' % (e, predicate, v)
 
 def main():
-    predicates = ['populationTotal', 'capital', 'source']
+    predicates = [
+        'populationTotal', 
+        'capital', 
+        'source', 
+        'discharge',
+        'areaTotal',
+        'mountainRange'
+        'elevation'
+    ]
     for p in predicates[0:1]:
         learn_new_triples(p)
             
