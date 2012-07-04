@@ -133,7 +133,8 @@ class SentenceClassifier:
                 print entity
                 if classes.count(1) >= 1:
                     print ' *** ' + ' '.join(article[classes.index(1)])
-                print ' '.join(map(lambda s: ' '.join(s), article))
+                print '\n'.join(map(lambda s: ' '.join(s), article))
+                print
             if classes.count(1) >= 1:
                 ret_entities.append(entity)
                 ret_sentences.append(article[classes.index(1)])

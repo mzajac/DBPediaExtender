@@ -6,6 +6,7 @@ from itertools import izip
 from sentence_classifier import get_sentence_classifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
+from evaluator import run_evaluation
 
 def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
@@ -32,8 +33,9 @@ def main():
         'mountainRange'
         'elevation'
     ]
-    for p in predicates[0:1]:
-        learn_new_triples(p)
+    run_evaluation()
+#    for p in predicates[0:1]:
+#        learn_new_triples(p)
             
 if __name__ == '__main__':
     main()
