@@ -34,7 +34,7 @@ class CandidatesSelector:
         
     @staticmethod
     def get_most_specific_types(predominant_types):
-        threshold = 1000
+        threshold = 100
         return [
             type for type in predominant_types
             if count_entities_of_type(type) > threshold
@@ -46,14 +46,18 @@ class CandidatesSelector:
             return Pickler.load(cache_path % predicate)
         except IOError:
             pass
-        candidates = select_entities_of_types_not_in_relation(
-            CandidatesSelector.get_most_specific_types(
-                CandidatesSelector.get_predominant_types(predicate)
-            ), 
-            predicate
+        types = CandidatesSelector.get_most_specific_types(
+            CandidatesSelector.get_predominant_types(predicate)
         )
-        Pickler.store(candidates, cache_path % predicate)
-        return candidates
+        if types:
+            candidates = select_entities_of_types_not_in_relation(
+                types, 
+                predicate
+            )
+            Pickler.store(candidates, cache_path % predicate)
+            return candidates
+        else:
+            return []
         
 if __name__ == '__main__':
     pass

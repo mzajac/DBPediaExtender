@@ -79,22 +79,28 @@ class SentenceClassifier:
         return articles
       
     def collect_sentences(self, names):
-        '''classifies all sentences based on the fact that they contain reference to searched value and to at least part of the predicate'''      
+        '''classifies all sentences based on the fact that they contain a reference to the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
         subjects, objects = zip(*list(names)) #unzip
         subject_articles = SentenceClassifier.get_articles(subjects)
         object_articles = SentenceClassifier.get_articles(objects)
         positive, negative = [], []
         for subject, object, subject_article, object_article in izip(subjects, objects, subject_articles, object_articles):
             for article, other_name in [(subject_article, object), (object_article, subject)]:
-                if article:
+                if article and other_name != '0': #there is no point in looking for occurences of zero
+                    pos = []
                     for sentence in article:
                         sentence = lt.prepare_sentence(sentence)
                         name_as_sublist = other_name.replace('_', ' ').split()
                         if contains_sublist(sentence, name_as_sublist):
                             sentence = lt.extract_vector_of_words(sentence)
-                            positive.append(sentence)
+                            pos.append(sentence)
                         else:
                             negative.append(sentence)
+                    #if there is exactly one sentence referring to the searched value, simply add it to positive examples
+                    #if more select only sentences containing at least part of the predicate
+                    if len(pos) > 1:
+                        pos = filter(lambda s: any(word in s for word in self.predicate_words), pos)
+                    positive += pos
         return positive, negative
         
     def convert_to_vector_space(self, sentences):
@@ -104,7 +110,8 @@ class SentenceClassifier:
         
     def train(self, names=None):
         if names is None:
-            names = select_all({'p': self.predicate})[:20000]
+            names = select_all({'p': self.predicate})[:1000]
+        print len(names)
         positive, negative = self.collect_sentences(names)
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)

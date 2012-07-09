@@ -25,17 +25,17 @@ def learn_new_triples(predicate):
 
 def main():
     predicates = [
-        'populationTotal', 
-        'capital', 
-        'source', 
+        'populationTotal',
+        'capital',
+        'source',
         'discharge',
         'areaTotal',
-        'mountainRange'
-        'elevation'
+        'mountainRange',
+        'elevation',
     ]
-    run_evaluation()
-#    for p in predicates[0:1]:
-#        learn_new_triples(p)
+#    run_evaluation()
+    for p in predicates[6:7]:
+        learn_new_triples(p)
             
 if __name__ == '__main__':
     main()
