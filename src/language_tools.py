@@ -26,7 +26,7 @@ class LanguageTools:
         
     def convert_to_base_form(self, sentence):
         return [
-            w.replace(',', '') for w in sentence
+            w.replace(',', '') if w != ',' else w for w in sentence 
         ]
         
     def prepare_sentence(self, sentence):

@@ -12,8 +12,8 @@ def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
     sc = get_sentence_classifier(predicate)
     entities = CandidatesSelector.get_candidates(predicate)[:100]
-    entities, sentences = sc.extract_sentences(entities, verbose=True)
-    ve = ValueExtractor(predicate)
+    entities, sentences = sc.extract_sentences(entities)
+    ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
         ve.extract_value(sentence)
         for entity, sentence in izip(entities, sentences)
@@ -34,7 +34,7 @@ def main():
         'elevation',
     ]
 #    run_evaluation()
-    for p in predicates[6:7]:
+    for p in predicates[0:1]:
         learn_new_triples(p)
             
 if __name__ == '__main__':

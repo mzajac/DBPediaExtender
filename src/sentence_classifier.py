@@ -90,16 +90,17 @@ class SentenceClassifier:
                     pos = []
                     for sentence in article:
                         sentence = lt.prepare_sentence(sentence)
+                        original_sentence = sentence[:]
                         name_as_sublist = other_name.replace('_', ' ').split()
                         if contains_sublist(sentence, name_as_sublist):
                             sentence = lt.extract_vector_of_words(sentence)
-                            pos.append(sentence)
+                            pos.append((sentence, original_sentence, name_as_sublist))
                         else:
                             negative.append(sentence)
                     #if there is exactly one sentence referring to the searched value, simply add it to positive examples
                     #if more select only sentences containing at least part of the predicate
                     if len(pos) > 1:
-                        pos = filter(lambda s: any(word in s for word in self.predicate_words), pos)
+                        pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
                     positive += pos
         return positive, negative
         
@@ -113,6 +114,8 @@ class SentenceClassifier:
             names = select_all({'p': self.predicate})[:1000]
         print len(names)
         positive, negative = self.collect_sentences(names)
+        self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
+        positive = map(lambda (s, os, v): s, positive)
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)
         negative = negative[: len(positive)]
