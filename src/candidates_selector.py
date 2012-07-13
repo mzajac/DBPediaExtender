@@ -1,13 +1,11 @@
-
 from collections import defaultdict
 
+from config import candidates_cache_path
 from sparql_access import select_types, count_entities_of_type, select_entities_of_types_not_in_relation
 from pickler import Pickler
 
-cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/candidates/%s'
-
 class CandidatesSelector:
-    #types that are too wide and cover too many entities
+    #types that are too wide and cover too many entities and should never be returned
     wide_types = [
         'http://dbpedia.org/ontology/PopulatedPlace',
         'http://schema.org/Place',
@@ -43,7 +41,7 @@ class CandidatesSelector:
     @staticmethod
     def get_candidates(predicate):
         try:
-            return Pickler.load(cache_path % predicate)
+            return Pickler.load(candidates_cache_path % predicate)
         except IOError:
             pass
         types = CandidatesSelector.get_most_specific_types(
@@ -54,7 +52,7 @@ class CandidatesSelector:
                 types, 
                 predicate
             )
-            Pickler.store(candidates, cache_path % predicate)
+            Pickler.store(candidates, candidates_cache_path % predicate)
             return candidates
         else:
             return []

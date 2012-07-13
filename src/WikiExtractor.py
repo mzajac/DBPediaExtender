@@ -429,8 +429,6 @@ class WikiExtractor:
         '''
         link_name = get_wiki_document_url(document_title, '').replace('_', ' ')
         return link_name.split('%23')[-1]
-#        return '[%s]' % (get_wiki_document_url(document_title, ''))
-#        return '<a href="%s">%s</a>' % (get_wiki_document_url(document_title, ''), link_text)
 
     def __handle_unicode(self, entity):
         numeric_code = int(entity[2:-1])

@@ -12,14 +12,13 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
+from config import lang, articles_cache_path, models_cache_path
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
 
-lang = 'en'
 lt = LanguageToolsFactory.get_language_tools(lang)
-cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/articles/%s/%%s' % lang
 
 def contains_sublist(lst, sublst):
     n = len(sublst)
@@ -38,7 +37,8 @@ def split_camelcase(s):
     
 def get_sentence_classifier(predicate):
     try:
-        return Pickler.load('model-%s.pkl' % predicate)
+#        print articles_cache_path % ('model-%s.pkl' % predicate)
+        return Pickler.load(models_cache_path % ('model-%s.pkl' % predicate))
     except IOError:
         return SentenceClassifier(predicate)
     
@@ -49,7 +49,7 @@ class SentenceClassifier:
         self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
         self.vocabulary = None
         self.train()
-        Pickler.store(self, 'model-%s.pkl' % predicate)
+        Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
         
     @staticmethod
     def collect_words(sentences, threshold=5):
@@ -68,12 +68,12 @@ class SentenceClassifier:
         for i, name in enumerate(names):
             name = name.replace('/', '_')
             try:
-                articles.append(Pickler.load(cache_path % name))
+                articles.append(Pickler.load(articles_cache_path % name))
             except IOError:
                 try:
                     article = lt.tokenize(get_article(name))
                     articles.append(article)
-                    Pickler.store(article, cache_path % name)
+                    Pickler.store(article, articles_cache_path % name)
                 except ArticleNotFoundError:
                     articles.append(None)
         return articles

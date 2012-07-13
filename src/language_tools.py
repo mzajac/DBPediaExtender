@@ -6,7 +6,7 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from string import digits, punctuation
 
-opennlp_path = 'opennlp-tools-1.5.0'
+from config import opennlp_path
 
 class LanguageToolsFactory:
     @staticmethod
@@ -52,7 +52,7 @@ class EnglishTools(LanguageTools):
             return None
         sentence_model = join(opennlp_path, 'en-sent.bin')
         tokens_model = join(opennlp_path, 'en-token.bin')
-        command = './%s/bin/opennlp SentenceDetector %s | ./%s/bin/opennlp TokenizerME %s' % (opennlp_path, sentence_model, opennlp_path, tokens_model)
+        command = '.%s/bin/opennlp SentenceDetector %s | .%s/bin/opennlp TokenizerME %s' % (opennlp_path, sentence_model, opennlp_path, tokens_model)
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         out, _ = p.communicate(text)
         sentences = out.rstrip('\n').split('\n')

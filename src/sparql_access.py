@@ -5,8 +5,7 @@ import sys
 from urllib2 import unquote
 from collections import defaultdict
 
-data_source = "http://dbpedia.org"
-sparql_endpoint = "http://localhost:8890/sparql/"
+from config import data_source, sparql_endpoint
 
 def full_predicate_name(name):
     return '%s/ontology/%s' % (data_source, name)

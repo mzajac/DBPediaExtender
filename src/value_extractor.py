@@ -4,15 +4,15 @@ import sys
 import nltk
 from nltk.tag.crf import MalletCRF
 
+from config import java_path, mallet_path, models_cache_path
+
 class ValueExtractor:
     def __init__(self, predicate, training_data):
         self.predicate = predicate
         self.training_data = ValueExtractor.convert_training_data(training_data)[:10]
-        self.model_filename = 'crf-model.crf'
-        java_home = '/usr/lib/jvm/java-6-sun-1.6.0.26'
-        mallet_home = '/home/mz/Dokumenty/dbpedia-enricher/ext/mallet-0.4'
-        nltk.internals.config_java(java_home)
-        nltk.classify.mallet.config_mallet(mallet_home)
+        self.model_filename = models_cache_path % ('model-%s.crf' % predicate)
+        nltk.internals.config_java(java_path)
+        nltk.classify.mallet.config_mallet(mallet_path)
         try:
             self.model = MalletCRF(self.model_filename, self.features_collector)            
         except IOError:
