@@ -4,7 +4,10 @@ import sys
 import nltk
 from nltk.tag.crf import MalletCRF
 
-from config import java_path, mallet_path, models_cache_path
+from config import lang, java_path, mallet_path, models_cache_path
+from language_tools import LanguageToolsFactory
+
+lt = LanguageToolsFactory.get_language_tools(lang)
 
 class ValueExtractor:
     def __init__(self, predicate, training_data):
@@ -45,14 +48,26 @@ class ValueExtractor:
         def alldigits(word):
             return all(d.isdigit() for d in word)
             
-        word = sentence[i]
-        window_size = 3            
+        def is_numeric(s):
+            try:
+                float(s)
+                return True
+            except ValueError:
+                return False
+            
+        word = sentence[i].decode('utf-8')
+        sentence = lt.lemmatize(map(lambda w: w.decode('utf8').lower(), sentence))
         features = {
+            'position': i,
             'recent_year': recent_year(word),
-            'other_year': recent_year(word),
+            'other_year': other_year(word),
             'alldigits': alldigits(word),
-#                'common_name': ,
+            'allalpha': all(d.isalpha() for d in word),
+            'allcapitals': all(d.isupper() for d in word),
+            'starts_with_capital': word[0].isupper(),
+            'numeric': is_numeric(word),
         }
+        window_size = 5
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
                 features['%d' % j] = sentence[i + j]
@@ -63,11 +78,19 @@ class ValueExtractor:
 
     def extract_value(self, sentence):
         tagged_sentence = self.model.tag(sentence)
-        #TODO check for consecutiveness
-        value = ' '.join([
-            w for w, tag in tagged_sentence if tag == '1'
-        ])
-        return value
-            
-        
-        
+        values = []
+        value = []
+        for w, tag in tagged_sentence:
+            if tag == '1':
+                value.append(w)
+            elif value:
+                values.append(' '.join(value))
+                value = []
+        if value:
+            values.append(' '.join(value))
+        if len(values) == 1:
+            return values[0]
+        if len(values) > 1:
+            print 'Multiple values found.'
+            return values[0]
+                   

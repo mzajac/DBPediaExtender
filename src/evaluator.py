@@ -2,9 +2,12 @@
 
 from __future__ import division
 from itertools import izip
+from os.path import join
 
+from config import tests_path
 from sentence_classifier import get_sentence_classifier
 from candidates_selector import CandidatesSelector
+from value_extractor import ValueExtractor
 
 class Stats:
     def __init__(self, tp, fp, fn):
@@ -19,59 +22,77 @@ class Stats:
         self.recall = self.tp / max(self.tp + self.fn, 1)
         self.f_measure = 2 * self.precision * self.recall / (self.precision + self.recall) if self.precision != 0 else 0
         
-class Evaluator:
-    @staticmethod
-    def evaluate(true_values, entities, sentences):
-        def value_matches():
-            if type(true_values[e]) == list:
-                return any(str(v) in s for v in true_values[e])
-            return str(true_values[e]) in s
         
-        tp, fp, fn = 0, 0, 0
-        for e, s in izip(entities, sentences):
-            if e in true_values and value_matches():
-                tp += 1
+class Evaluator:
+    @classmethod
+    def evaluate(cls, true_values, entities, values, verbose=False):
+        tp, fp, fn = cls.classify_by_error_type(true_values, entities, values)
+        print Stats(len(tp), len(fp), len(fn))
+        print 'True positives:'
+        print tp
+        print 'False positives:'
+        print fp
+        print 'False negatives:'
+        print fn
+        print
+    
+    @classmethod
+    def classify_by_error_type(cls, true_values, entities, values):
+        tp, fp, fn = [], [], []
+        suggested_values = dict(zip(entities, values))
+        for entity, value in suggested_values.iteritems():
+            if not value:
+                continue
+            if entity in true_values and cls.value_matches(true_values, value, entity):
+                tp.append(entity)
             else:
-                fp += 1
-        fn = len(true_values) - tp
-        print Stats(tp, fp, fn)
-    
-def populationEnglishTest():
-    predicate = 'populationTotal'
-    entities = ['Dete', 'Codpa', 'Ebenfurth', 'Felixdorf', 'Arborfield', 'Hirtenberg', 'Falkenfels', 'Mauerstetten', 'Osterzell', 'W\xc3\xb6rth_an_der_Donau', 'Eugendorf', 'Vilsbiburg', 'Titisee-Neustadt', 'Patersdorf', 'New_Eltham', 'Hainsfarth', 'Riedenburg', 'Ruhmannsfelden', 'Germaringen', 'Besigheim', 'Chislehurst', 'Eggenthal', 'Back,_Lewis', 'Steenderen', 'Kungsbacka_Municipality', 'Napoleon,_Michigan', 'Blandinsville,_Illinois', 'Bellflower,_Illinois', 'Bardolph,_Illinois', 'Metropolis,_Illinois', 'Alexis,_Illinois', 'Cavendish,_Suffolk', 'Tremont,_Maine', 'Anfield,_Liverpool', 'Angel_City,_Florida', 'Century_City,_Cape_Town', 'Gorman,_California', 'Cubley,_South_Yorkshire', 'Boeng_Pring', 'Empire,_Mendocino_County,_California', 'Robinson,_California', 'Halo,_West_Virginia', 'Nason,_Illinois', 'Buch,_Rhein-Lahn', 'Venhuizen', 'Kirby,_Wisconsin', 'Finsp\xc3\xa5ng_Municipality', 'Str\xc3\xa4ngn\xc3\xa4s_Municipality', 'Kinda_Municipality', 'S\xc3\xa4ffle_Municipality', 'Arvika_Municipality', 'Arjeplog_Municipality', 'V\xc3\xa4xj\xc3\xb6_Municipality', 'Tingsryd_Municipality', 'Lessebo_Municipality', 'Gaoyao', 'Oatman,_Arizona', 'Lax\xc3\xa5_Municipality', 'Nora_Municipality', '\xc3\x96rebro_Municipality', 'Rockwood,_Maine', 'Harding,_KwaZulu-Natal', 'Ivindo_Department', 'Barham,_Huntingdonshire', 'Hereford,_Maryland', 'Hereford,_Colorado', 'Sankt_Jakob_in_Haus', 'Cornell,_California', 'K\xc3\xb6ping_Municipality', 'Hallstahammar_Municipality', 'Pf\xc3\xa4ffikon_District', 'Pf\xc3\xa4ffikon,_Zurich', 'Dass,_Nigeria', 'Bigfork,_Minnesota', 'Moores_Flat,_California', 'Ruda,_Gmina_Przy\xc5\x82\xc4\x99k', 'Ruda,_Ostr\xc3\xb3w_Mazowiecka_County', 'Gnesta_Municipality', 'Castletownbere', 'Ballyheigue', 'Bournville', 'Lakenheath', 'Selly_Oak', 'Burry_Port', 'Breadstone', 'East_Hanningfield', 'Pampisford', 'Haversham', 'Horseheath', 'Ambatofinandrahana', 'Baltasound', 'Somerleyton', 'St_Olaves', 'Beryl,_Utah', 'Cornforth', 'Tallentire', 'Birnin_Kudu', 'Bornu_Yassa', 'Titiwa', 'Koulen']
-    true_values = {
-        'Hirtenberg': 2500,
-        'Mauerstetten': 2800,
-        'Eugendorf': 6439,
-        'Vilsbiburg': 11000,
-        'Napoleon,_Michigan': 1254,
-        'Blandinsville,_Illinois': 777,
-        'Bellflower,_Illinois': 408,
-        'Bardolph,_Illinois': 253,
-        'Metropolis,_Illinois': 6482,
-        'Alexis,_Illinois': 863,
-        'Tremont,_Maine': 1529,
-        'Nason,_Illinois': 234,
-        'Venhuizen': 7812,
-        'Gaoyao': 706000,
-        'Oatman,_Arizona': 128,
-        'Sankt_Jakob_in_Haus': 656,
-        'Pfäffikon,_Zurich': 10817,
-        'Dass,_Nigeria': 89943,
-        'Bigfork,_Minnesota': 446,
-        'Castletownbere': 875,
-        'Ballyheigue': 2031,
-        'Bournville': 25462,
-        'Lakenheath': 8200,
-        'Selly_Oak': 25792,
-        'Burry_Port': [8000, 4209], #both values are reasonable
-        'Haversham': 803,
-        'Birnin_Kudu': 27000,
-        'Bornu_Yassa': 5987,
-    }
+                fp.append(entity)
+        for entity, value in true_values.iteritems():
+            if not suggested_values.get(entity) or not cls.value_matches(suggested_values, value[0], entity):
+                fn.append(entity)
+        return tp, fp, fn
+        
+class SentenceClassifierEvaluator(Evaluator):
+    @staticmethod
+    def value_matches(values, value, entity):
+        return any(str(v) in value for v in values[entity])
+        
+class ValueExtractorEvaluator(Evaluator):
+    @staticmethod
+    def value_matches(values, value, entity):
+        if type(values[entity]) != list:
+            values[entity] = [values[entity]]
+        return any(str(v) == value for v in values[entity])
+                
+                    
+def get_test_data(predicate):
+    entities = open(join(tests_path, predicate, 'entities')).read().split()
+    values = open(join(tests_path, predicate, 'values')).read().split('\n')
+    true_values = {}
+    for value in values:
+        value = value.split()
+        if value:
+            true_values[value[0]] = value[1:]
+    return entities, true_values  
+      
+def run_evaluation(predicate):
+    entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate)
-    entities, sentences = sc.extract_sentences(entities)
-    Evaluator.evaluate(true_values, entities, sentences)
-    
-def run_evaluation():
-    populationEnglishTest()
+    entities, sentences = sc.extract_sentences(entities, verbose=True)
+    ve = ValueExtractor(predicate, sc.extractor_training_data)
+    values = [
+        ve.extract_value(sentence)
+        for entity, sentence in izip(entities, sentences)
+    ]
+    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, sentences)
+    print 'Sentence classifier:'
+    SentenceClassifierEvaluator.evaluate(true_values, entities, sentences)
+    true_values_without_entities_excluded = {}
+    for entity, value in true_values.iteritems():
+        if entity not in false_negatives:
+            true_values_without_entities_excluded[entity] = value
+    print 'Value extractor classifier:'
+    ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
+    print 'Overall:'
+    ValueExtractorEvaluator.evaluate(true_values, entities, values)
+

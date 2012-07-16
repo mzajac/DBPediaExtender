@@ -37,7 +37,6 @@ def split_camelcase(s):
     
 def get_sentence_classifier(predicate):
     try:
-#        print articles_cache_path % ('model-%s.pkl' % predicate)
         return Pickler.load(models_cache_path % ('model-%s.pkl' % predicate))
     except IOError:
         return SentenceClassifier(predicate)
@@ -47,7 +46,6 @@ class SentenceClassifier:
         self.predicate = predicate
         self.predicate_words = lt.lemmatize(split_camelcase(predicate))
         self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
-        self.vocabulary = None
         self.train()
         Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
         
@@ -111,7 +109,7 @@ class SentenceClassifier:
         
     def train(self, names=None):
         if names is None:
-            names = select_all({'p': self.predicate})[:1000]
+            names = select_all({'p': self.predicate})[:10000]
         print len(names)
         positive, negative = self.collect_sentences(names)
         self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
@@ -135,6 +133,9 @@ class SentenceClassifier:
         articles = SentenceClassifier.get_articles(entities)
         ret_entities, ret_sentences = [], [] 
         for entity, article in izip(entities, articles):
+            if not article:
+                print entity
+                continue
             article = map(lambda s: lt.prepare_sentence(s), article)
             sentences = map(lambda s: lt.extract_vector_of_words(s), article)
             vectors, _ = self.convert_to_vector_space(sentences)

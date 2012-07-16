@@ -23,3 +23,4 @@ articles_cache_path = cache_path + '%s/articles/%%s' % lang
 candidates_cache_path = cache_path + '%s/candidates/%%s' % lang
 models_cache_path = cache_path + '%s/models/%%s' % lang
 results_path = '/home/mz/Dokumenty/dbpedia-enricher/results/%s/' % lang
+tests_path = '/home/mz/Dokumenty/dbpedia-enricher/tests/%s/' % lang
