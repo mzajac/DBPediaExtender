@@ -134,7 +134,6 @@ class SentenceClassifier:
         ret_entities, ret_sentences = [], [] 
         for entity, article in izip(entities, articles):
             if not article:
-                print entity
                 continue
             article = map(lambda s: lt.prepare_sentence(s), article)
             sentences = map(lambda s: lt.extract_vector_of_words(s), article)

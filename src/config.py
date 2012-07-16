@@ -11,7 +11,7 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][0:1]
+][5:6]
 
 opennlp_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/opennlp-tools-1.5.0'
 java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26'

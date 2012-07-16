@@ -25,9 +25,9 @@ def learn_new_triples(predicate):
             print >>out, '%s %s %s .' % (e, predicate, v)
 
 def main():
-    run_evaluation('populationTotal')
-#    for p in predicates:
-#        learn_new_triples(p)
+#    run_evaluation('populationTotal')
+    for p in predicates:
+        learn_new_triples(p)
             
 if __name__ == '__main__':
     main()
