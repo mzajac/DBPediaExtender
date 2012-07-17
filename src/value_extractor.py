@@ -12,7 +12,9 @@ lt = LanguageToolsFactory.get_language_tools(lang)
 class ValueExtractor:
     def __init__(self, predicate, training_data):
         self.predicate = predicate
-        self.training_data = ValueExtractor.convert_training_data(training_data)[:10]
+        self.training_data = ValueExtractor.convert_training_data(training_data)
+        for i, _ in enumerate(self.training_data):
+            ValueExtractor.store_anchors_tagged(self.training_data[i])
         self.model_filename = models_cache_path % ('model-%s.crf' % predicate)
         nltk.internals.config_java(java_path)
         nltk.classify.mallet.config_mallet(mallet_path)
@@ -38,12 +40,33 @@ class ValueExtractor:
         return map(lambda (s, v): s, data)
         
     @staticmethod
+    def store_anchors_tagged(sentence):
+        for i, (segment, tag) in enumerate(sentence):
+            sentence[i] = ((segment, segment.is_anchor), tag)
+            
+    @staticmethod
+    def store_anchors_untagged(sentence):
+        for i, segment in enumerate(sentence):
+            sentence[i] = (segment, segment.is_anchor)
+            
+    @staticmethod
+    def remove_anchors(sentence):
+        for i, ((segment, anchor), tag) in enumerate(sentence):
+            sentence[i] = (segment, tag)
+        
+    @staticmethod
     def features_collector(sentence, i):
         def recent_year(word):
-            return alldigits(word) and 1990 <= int(word) <= 2012
+            try:
+                return 1990 <= int(word) <= 2012
+            except ValueError:
+                return False
             
         def other_year(word):
-            return alldigits(word) and 1001 <= int(word) <= 1989
+            try:
+                return 1001 <= int(word) <= 1989
+            except ValueError:
+                return False
             
         def alldigits(word):
             return all(d.isdigit() for d in word)
@@ -55,29 +78,36 @@ class ValueExtractor:
             except ValueError:
                 return False
             
-        word = sentence[i].decode('utf-8')
-        sentence = lt.lemmatize(map(lambda w: w.decode('utf8').lower(), sentence))
-        features = {
-            'position': i,
-            'recent_year': recent_year(word),
-            'other_year': other_year(word),
-            'alldigits': alldigits(word),
-            'allalpha': all(d.isalpha() for d in word),
-            'allcapitals': all(d.isupper() for d in word),
-            'starts_with_capital': word[0].isupper(),
-            'numeric': is_numeric(word),
-        }
+        sentence = map(lambda (w, _): (w.decode('utf-8'), _), sentence)
+        features = {}
         window_size = 5
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
-                features['%d' % j] = sentence[i + j]
+                word, is_anchor = sentence[i + j]
+                word_features = {
+                    'token': word,
+                    'lemma': lt.lemmatize([word.lower()])[0],
+                    'position': i,
+                    'recent_year': recent_year(word),
+                    'other_year': other_year(word),
+                    'alldigits': alldigits(word),
+                    'allalpha': all(d.isalpha() for d in word),
+                    'allcapitals': all(d.isupper() for d in word),
+                    'starts_with_capital': word[0].isupper(),
+                    'numeric': is_numeric(word),
+                    'is_anchor': is_anchor,
+                }
+                for name, feature in word_features.iteritems():
+                    features['%d %s' % (j, name)] = feature
         return features
         
     def train(self):
         self.model = MalletCRF.train(self.features_collector, self.training_data, self.model_filename)
 
     def extract_value(self, sentence):
+        ValueExtractor.store_anchors_untagged(sentence)
         tagged_sentence = self.model.tag(sentence)
+        ValueExtractor.remove_anchors(tagged_sentence)
         values = []
         value = []
         for w, tag in tagged_sentence:

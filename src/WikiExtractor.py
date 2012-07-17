@@ -48,6 +48,8 @@ import urllib
 import re
 import bz2
 import os.path
+from urllib2 import unquote
+from config import anchor_sign
 
 ### PARAMS ####################################################################
 
@@ -424,11 +426,17 @@ class WikiExtractor:
             I decided to use the name of the link instead of using the text, as that prevents me from having to deal with the problem of named entity recognition.
             Example: United States may appear in text as the U.S., the USA, The United States of America.
                      All these names should be replaced by the name United States.
-            However some of the links are not links to a article describing the entity described but to a paragraph in another article. In that case the whole link is not very useful and the name of the paragraph is the value to extract.
+            However some of the links are not links to an article describing the entity described but to a paragraph in another article. In that case the whole link is not very useful and the name of the paragraph is the value to extract.
             Example: [[Subdivisions of India#Municipalities|municipality]]
         '''
-        link_name = get_wiki_document_url(document_title, '').replace('_', ' ')
-        return link_name.split('%23')[-1]
+        link_name = unquote(get_wiki_document_url(document_title, '').replace('_', ' '))
+        if '#' in link_name:
+            return link_name.split('#')[-1].decode('utf-8')
+        segments = re.split(' |(\(|\)|,)', link_name)
+        segments = filter(lambda s: s, segments)
+        segments = map(lambda s: s + anchor_sign, segments)
+        segments = map(lambda s: s.decode('utf-8'), segments)
+        return ' '.join(segments)
 
     def __handle_unicode(self, entity):
         numeric_code = int(entity[2:-1])

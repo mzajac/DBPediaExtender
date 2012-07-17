@@ -6,7 +6,12 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from string import digits, punctuation
 
-from config import opennlp_path
+from config import stanford_path, anchor_sign
+
+class Segment(str):
+    def __init__(self, s):
+        self.is_anchor = False
+        self = s
 
 class LanguageToolsFactory:
     @staticmethod
@@ -24,15 +29,11 @@ class LanguageTools:
             if all(c not in digits for c in w) and not all(c in punctuation for c in w) 
         ]
         
-    def convert_to_base_form(self, sentence):
+    def convert_numerals_to_base_form(self, sentence):
+        '''converts numerals to base form e.g. 100,000 becomes 100000'''
         return [
             w.replace(',', '') if w != ',' else w for w in sentence 
         ]
-        
-    def prepare_sentence(self, sentence):
-        sentence = sentence.split()
-        sentence = self.convert_to_base_form(sentence)
-        return sentence
         
     def extract_vector_of_words(self, sentence):
         sentence = map(lambda w: w.decode('utf8').lower(), sentence)
@@ -46,15 +47,38 @@ class EnglishTools(LanguageTools):
         self.lemmatizer = PorterStemmer()
         self.stopwords = set(stopwords.words('english'))
         
+    def split(self, segments, sentence_ending_segments='.!?'):
+        sentences = []
+        sentence = []
+        for segment in segments:
+            sentence.append(segment)
+            if segment in sentence_ending_segments:
+                sentences.append(sentence)
+                sentence = []
+        return sentences
+        
+    def save_anchors_info(self, sentence):
+        new_sentence = []
+        for segment in sentence:
+            if segment == anchor_sign:
+                if new_sentence:
+                    new_sentence[-1].is_anchor = True
+            else:
+                new_sentence.append(Segment(segment))
+        return new_sentence
+        
     def tokenize(self, text):
         if text is None:
             return None
-        sentence_model = join(opennlp_path, 'en-sent.bin')
-        tokens_model = join(opennlp_path, 'en-token.bin')
-        command = '.%s/bin/opennlp SentenceDetector %s | .%s/bin/opennlp TokenizerME %s' % (opennlp_path, sentence_model, opennlp_path, tokens_model)
+        command = 'java -cp %s/stanford-parser.jar edu.stanford.nlp.process.PTBTokenizer -options "normalizeParentheses=false"' % stanford_path
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         out, _ = p.communicate(text)
-        sentences = out.rstrip('\n').split('\n')
+        sentences = self.split(out.split('\n'))
+        if sentences[-1] == ['']:
+            sentences.pop()
+        sentences = map(lambda s: filter(lambda w: w, s), sentences)
+        sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
+        sentences = map(lambda s: self.save_anchors_info(s), sentences)
         return sentences
 
     def lemmatize(self, words):

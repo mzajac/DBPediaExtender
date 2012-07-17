@@ -87,7 +87,6 @@ class SentenceClassifier:
                 if article and other_name != '0': #there is no point in looking for occurences of zero
                     pos = []
                     for sentence in article:
-                        sentence = lt.prepare_sentence(sentence)
                         original_sentence = sentence[:]
                         name_as_sublist = other_name.replace('_', ' ').split()
                         if contains_sublist(sentence, name_as_sublist):
@@ -107,10 +106,8 @@ class SentenceClassifier:
         vectors = cv.transform(sentences) if sentences else []
         return vectors, sentences
         
-    def train(self, names=None):
-        if names is None:
-            names = select_all({'p': self.predicate})[:10000]
-        print len(names)
+    def train(self):
+        names = select_all({'p': self.predicate})[:10000]
         positive, negative = self.collect_sentences(names)
         self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
         positive = map(lambda (s, os, v): s, positive)
@@ -135,7 +132,6 @@ class SentenceClassifier:
         for entity, article in izip(entities, articles):
             if not article:
                 continue
-            article = map(lambda s: lt.prepare_sentence(s), article)
             sentences = map(lambda s: lt.extract_vector_of_words(s), article)
             vectors, _ = self.convert_to_vector_space(sentences)
             classes = self.predict(vectors)

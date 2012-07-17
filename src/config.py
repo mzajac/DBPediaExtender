@@ -1,4 +1,5 @@
 lang = 'en'
+anchor_sign = '~'
 
 data_source = "http://dbpedia.org"
 sparql_endpoint = "http://localhost:8890/sparql/"
@@ -11,9 +12,10 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][5:6]
+][0:1]
 
 opennlp_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/opennlp-tools-1.5.0'
+stanford_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/stanford-parser'
 java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26'
 mallet_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/mallet-0.4'
 
