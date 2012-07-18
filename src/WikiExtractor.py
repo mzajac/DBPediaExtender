@@ -49,7 +49,6 @@ import re
 import bz2
 import os.path
 from urllib2 import unquote
-from config import anchor_sign
 
 ### PARAMS ####################################################################
 
@@ -434,7 +433,6 @@ class WikiExtractor:
             return link_name.split('#')[-1].decode('utf-8')
         segments = re.split(' |(\(|\)|,)', link_name)
         segments = filter(lambda s: s, segments)
-        segments = map(lambda s: s + anchor_sign, segments)
         segments = map(lambda s: s.decode('utf-8'), segments)
         return ' '.join(segments)
 

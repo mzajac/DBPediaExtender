@@ -1,13 +1,13 @@
 #language code
 lang = 'en'
-#character used to signify if a preceding segment is part of an anchor
-#node: should be an ASCII symbol not present in Wikitext
-anchor_sign = '~' 
+data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
-verbose = True
-evaluation_mode = False
+verbose = False
+evaluation_mode = True
+#limits number of candidates for learning
 candidates_limit = 100
-training_limit = 10
+#limits number of triples used in training
+training_limit = 10000
 
 predicates = [
     'populationTotal',
@@ -17,9 +17,8 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][1:2]
+][0:1]
 
-data_source = "http://dbpedia.org"
 sparql_endpoint = "http://localhost:8890/sparql/"
 
 main_path = '/home/mz/Dokumenty/dbpedia-enricher/'

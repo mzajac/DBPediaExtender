@@ -3,7 +3,6 @@
 import sys
 import os
 import numpy
-from pprint import pprint
 from itertools import izip
 from collections import defaultdict
 from random import shuffle
@@ -63,17 +62,24 @@ class SentenceClassifier:
     @staticmethod 
     def get_articles(names):
         articles = []
+        articles_to_tokenize = []
+        articles_to_tokenize_indexes = []
         for i, name in enumerate(names):
             name = name.replace('/', '_')
             try:
                 articles.append(Pickler.load(articles_cache_path % name))
             except IOError:
                 try:
-                    article = lt.tokenize(get_article(name))
-                    articles.append(article)
-                    Pickler.store(article, articles_cache_path % name)
+                    articles_to_tokenize.append(get_article(name))
+                    articles_to_tokenize_indexes.append(i)
                 except ArticleNotFoundError:
-                    articles.append(None)
+                    pass
+                articles.append(None)
+        tokenized_articles = lt.tokenize(articles_to_tokenize)
+        for i, article in izip(articles_to_tokenize_indexes, tokenized_articles):
+            name = names[i].replace('/', '_')
+            articles[i] = article
+            Pickler.store(article, articles_cache_path % name)
         return articles
       
     def collect_sentences(self, names):
@@ -99,6 +105,7 @@ class SentenceClassifier:
                     if len(pos) > 1:
                         pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
                     positive += pos
+        print len(positive)
         return positive, negative
         
     def convert_to_vector_space(self, sentences):

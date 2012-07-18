@@ -13,8 +13,6 @@ class ValueExtractor:
     def __init__(self, predicate, training_data):
         self.predicate = predicate
         self.training_data = ValueExtractor.convert_training_data(training_data)
-        for i, _ in enumerate(self.training_data):
-            ValueExtractor.store_anchors_tagged(self.training_data[i])
         self.model_filename = models_cache_path % ('model-%s.crf' % predicate)
         nltk.internals.config_java(java_path)
         nltk.classify.mallet.config_mallet(mallet_path)
@@ -40,21 +38,6 @@ class ValueExtractor:
         return map(lambda (s, v): s, data)
         
     @staticmethod
-    def store_anchors_tagged(sentence):
-        for i, (segment, tag) in enumerate(sentence):
-            sentence[i] = ((segment, segment.is_anchor), tag)
-            
-    @staticmethod
-    def store_anchors_untagged(sentence):
-        for i, segment in enumerate(sentence):
-            sentence[i] = (segment, segment.is_anchor)
-            
-    @staticmethod
-    def remove_anchors_tagged(sentence):
-        for i, ((segment, anchor), tag) in enumerate(sentence):
-            sentence[i] = (segment, tag)
-        
-    @staticmethod
     def features_collector(sentence, i):
         def recent_year(word):
             try:
@@ -77,17 +60,27 @@ class ValueExtractor:
                 return True
             except ValueError:
                 return False
+                
+        def normalize(word):
+            return ''.join([
+                ('0' if char.isdigit() else 
+                 'a' if char.islower() else
+                 'A' if char.isupper() else
+                 '!')
+                for char in word    
+            ])
             
-        sentence = map(lambda (w, _): (w.decode('utf-8'), _), sentence)
-        features = {}
+        sentence = map(lambda w: w.decode('utf-8'), sentence)
+        features = {
+            'position': i,
+        }
         window_size = 5
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
-                word, is_anchor = sentence[i + j]
+                word = sentence[i + j]
                 word_features = {
                     'token': word,
                     'lemma': lt.lemmatize([word.lower()])[0],
-                    'position': i,
                     'recent_year': recent_year(word),
                     'other_year': other_year(word),
                     'alldigits': alldigits(word),
@@ -95,7 +88,7 @@ class ValueExtractor:
                     'allcapitals': all(d.isupper() for d in word),
                     'starts_with_capital': word[0].isupper(),
                     'numeric': is_numeric(word),
-                    'is_anchor': is_anchor,
+                    'normalized': normalize(word),
                 }
                 for name, feature in word_features.iteritems():
                     features['%d %s' % (j, name)] = feature
@@ -105,10 +98,7 @@ class ValueExtractor:
         self.model = MalletCRF.train(self.features_collector, self.training_data, self.model_filename)
 
     def extract_value(self, sentence):
-        sentence_with_anchors = sentence[:]
-        ValueExtractor.store_anchors_untagged(sentence_with_anchors)
-        tagged_sentence = self.model.tag(sentence_with_anchors)
-        ValueExtractor.remove_anchors_tagged(tagged_sentence)
+        tagged_sentence = self.model.tag(sentence)
         values = []
         value = []
         for w, tag in tagged_sentence:
