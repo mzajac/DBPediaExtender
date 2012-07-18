@@ -4,7 +4,7 @@ from __future__ import division
 from itertools import izip
 from os.path import join
 
-from config import tests_path
+from config import tests_path, verbose
 from sentence_classifier import get_sentence_classifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
@@ -78,7 +78,7 @@ def get_test_data(predicate):
 def run_evaluation(predicate):
     entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate)
-    entities, sentences = sc.extract_sentences(entities, verbose=False)
+    entities, sentences = sc.extract_sentences(entities, verbose=verbose)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
         ve.extract_value(sentence)

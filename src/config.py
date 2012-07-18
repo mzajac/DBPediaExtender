@@ -1,8 +1,13 @@
+#language code
 lang = 'en'
-anchor_sign = '~'
+#character used to signify if a preceding segment is part of an anchor
+#node: should be an ASCII symbol not present in Wikitext
+anchor_sign = '~' 
 
-data_source = "http://dbpedia.org"
-sparql_endpoint = "http://localhost:8890/sparql/"
+verbose = True
+evaluation_mode = False
+candidates_limit = 100
+training_limit = 10
 
 predicates = [
     'populationTotal',
@@ -12,17 +17,20 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][0:1]
+][1:2]
 
-opennlp_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/opennlp-tools-1.5.0'
-stanford_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/stanford-parser'
+data_source = "http://dbpedia.org"
+sparql_endpoint = "http://localhost:8890/sparql/"
+
+main_path = '/home/mz/Dokumenty/dbpedia-enricher/'
+ext_path = main_path + 'ext/'
+stanford_path = ext_path + 'stanford-parser'
 java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26'
-mallet_path = '/home/mz/Dokumenty/dbpedia-enricher/ext/mallet-0.4'
-
+mallet_path = ext_path + 'mallet-0.4'
 raw_articles_path = '/media/Data/Virtuoso/articles'
-cache_path = '/home/mz/Dokumenty/dbpedia-enricher/cache/'
+cache_path = main_path + 'cache/'
 articles_cache_path = cache_path + '%s/articles/%%s' % lang
 candidates_cache_path = cache_path + '%s/candidates/%%s' % lang
 models_cache_path = cache_path + '%s/models/%%s' % lang
-results_path = '/home/mz/Dokumenty/dbpedia-enricher/results/%s/' % lang
-tests_path = '/home/mz/Dokumenty/dbpedia-enricher/tests/%s/' % lang
+results_path = main_path + 'results/%s/' % lang
+tests_path = main_path + 'tests/%s/' % lang

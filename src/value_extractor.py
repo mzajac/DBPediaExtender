@@ -50,7 +50,7 @@ class ValueExtractor:
             sentence[i] = (segment, segment.is_anchor)
             
     @staticmethod
-    def remove_anchors(sentence):
+    def remove_anchors_tagged(sentence):
         for i, ((segment, anchor), tag) in enumerate(sentence):
             sentence[i] = (segment, tag)
         
@@ -105,9 +105,10 @@ class ValueExtractor:
         self.model = MalletCRF.train(self.features_collector, self.training_data, self.model_filename)
 
     def extract_value(self, sentence):
-        ValueExtractor.store_anchors_untagged(sentence)
-        tagged_sentence = self.model.tag(sentence)
-        ValueExtractor.remove_anchors(tagged_sentence)
+        sentence_with_anchors = sentence[:]
+        ValueExtractor.store_anchors_untagged(sentence_with_anchors)
+        tagged_sentence = self.model.tag(sentence_with_anchors)
+        ValueExtractor.remove_anchors_tagged(tagged_sentence)
         values = []
         value = []
         for w, tag in tagged_sentence:
@@ -118,9 +119,6 @@ class ValueExtractor:
                 value = []
         if value:
             values.append(' '.join(value))
-        if len(values) == 1:
-            return values[0]
-        if len(values) > 1:
-            print 'Multiple values found.'
+        if len(values) >= 1:
             return values[0]
                    

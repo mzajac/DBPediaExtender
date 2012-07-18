@@ -12,7 +12,7 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
-from config import lang, articles_cache_path, models_cache_path
+from config import lang, articles_cache_path, models_cache_path, training_limit
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
@@ -107,7 +107,7 @@ class SentenceClassifier:
         return vectors, sentences
         
     def train(self):
-        names = select_all({'p': self.predicate})[:10000]
+        names = select_all({'p': self.predicate})[: training_limit]
         positive, negative = self.collect_sentences(names)
         self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
         positive = map(lambda (s, os, v): s, positive)
