@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
+import sys
 from itertools import izip
 from os.path import join
 
-from config import tests_path, verbose
-from sentence_classifier import get_sentence_classifier
+from config import tests_path, verbose, min_num_evaluation, evaluation_limit
+from sentence_classifier import get_sentence_classifier, SentenceClassifier, contains_sublist
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
+from sparql_access import select_all
 
 class Stats:
     def __init__(self, tp, fp, fn):
@@ -25,16 +27,17 @@ class Stats:
         
 class Evaluator:
     @classmethod
-    def evaluate(cls, true_values, entities, values, verbose=False):
+    def evaluate(cls, true_values, entities, values):
         tp, fp, fn = cls.classify_by_error_type(true_values, entities, values)
         print Stats(len(tp), len(fp), len(fn))
-        print 'True positives:'
-        print tp
-        print 'False positives:'
-        print fp
-        print 'False negatives:'
-        print fn
-        print
+        if verbose:
+            print 'True positives:'
+            print tp
+            print 'False positives:'
+            print fp
+            print 'False negatives:'
+            print fn
+            print
     
     @classmethod
     def classify_by_error_type(cls, true_values, entities, values):
@@ -73,12 +76,11 @@ def get_test_data(predicate):
         value = value.split()
         if value:
             true_values[value[0]] = value[1:]
-    return entities, true_values  
+    return entities, true_values
       
-def run_evaluation(predicate):
-    entities, true_values = get_test_data(predicate)
-    sc = get_sentence_classifier(predicate)
-    entities, sentences = sc.extract_sentences(entities, verbose=verbose)
+def run_evaluation(predicate, entities, true_values, sc):
+    assert len(entities) >= min_num_evaluation, 'Too few entities to perform evaluation.'
+    entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
         ve.extract_value(sentence)
@@ -91,8 +93,34 @@ def run_evaluation(predicate):
     for entity, value in true_values.iteritems():
         if entity not in false_negatives:
             true_values_without_entities_excluded[entity] = value
-    print 'Value extractor classifier:'
+    print 'Value extractor:'
     ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
     print 'Overall:'
     ValueExtractorEvaluator.evaluate(true_values, entities, values)
-
+    
+def run_manual_evaluation(predicate):
+    entities, true_values = get_test_data(predicate)
+    sc = get_sentence_classifier(predicate)
+    run_evaluation(predicate, entities, true_values, sc)
+    
+def run_automatic_evaluation(predicate):
+    sc = get_sentence_classifier(predicate)
+    entities_and_values = select_all({'p': predicate})
+    #filter out entities used during training
+    entities_and_values = filter(lambda v: v not in sc.names, entities_and_values)[: evaluation_limit]
+    entities = dict(entities_and_values).keys()
+    #filter out entities which don't contain the value (i.e. we have no chance of learning it)
+    entities_and_values = filter(lambda (e, v): contains_segment(e, v), entities_and_values)
+    entities_and_values = map(lambda (e, v): (e, [v]), entities_and_values)
+    true_values = dict(entities_and_values)
+    run_evaluation(predicate, entities, true_values, sc)
+    
+def contains_segment(entity, value):
+    '''checks if value appears in article about entity'''
+    article = SentenceClassifier.get_articles([entity])[0]
+    value_as_sublist = value.replace('_', ' ').split()
+    return any(
+        contains_sublist(sentence, value_as_sublist)
+        for sentence in article
+    )
+    

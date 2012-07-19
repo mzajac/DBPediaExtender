@@ -11,7 +11,7 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
-from config import lang, articles_cache_path, models_cache_path, training_limit
+from config import lang, articles_cache_path, models_cache_path, training_limit, verbose
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
@@ -105,7 +105,6 @@ class SentenceClassifier:
                     if len(pos) > 1:
                         pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
                     positive += pos
-        print len(positive)
         return positive, negative
         
     def convert_to_vector_space(self, sentences):
@@ -129,11 +128,12 @@ class SentenceClassifier:
         vectors, _ = self.convert_to_vector_space(sentences)
         self.classifier = SVC(kernel='linear')
         self.classifier.fit(vectors, classes)
+        self.names = set(names)
         
     def predict(self, vectors):
         return map(int, list(self.classifier.predict(vectors)))
         
-    def extract_sentences(self, entities, verbose=False):
+    def extract_sentences(self, entities):
         articles = SentenceClassifier.get_articles(entities)
         ret_entities, ret_sentences = [], [] 
         for entity, article in izip(entities, articles):

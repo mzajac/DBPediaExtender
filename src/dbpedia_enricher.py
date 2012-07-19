@@ -3,11 +3,11 @@
 import sys
 from itertools import izip
 
-from config import results_path, predicates, evaluation_mode, candidates_limit, verbose
+from config import results_path, predicates, evaluation_mode, candidates_limit, verbose, manual_evaluation
 from sentence_classifier import get_sentence_classifier, SentenceClassifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
-from evaluator import run_evaluation
+from evaluator import run_automatic_evaluation, run_manual_evaluation
 
 def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
@@ -27,7 +27,10 @@ def learn_new_triples(predicate):
 def main():    
     for p in predicates:
         if evaluation_mode:
-            run_evaluation(p)
+            if manual_evaluation:
+                run_manual_evaluation(p)     
+            else:
+                run_automatic_evaluation(p)
         else:
             learn_new_triples(p)
             
