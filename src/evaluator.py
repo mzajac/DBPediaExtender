@@ -5,7 +5,7 @@ import sys
 from itertools import izip
 from os.path import join
 
-from config import tests_path, verbose, min_num_evaluation, evaluation_limit
+from config import tests_path, verbose
 from sentence_classifier import get_sentence_classifier, SentenceClassifier, contains_sublist
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
@@ -78,8 +78,9 @@ def get_test_data(predicate):
             true_values[value[0]] = value[1:]
     return entities, true_values
       
-def run_evaluation(predicate, entities, true_values, sc):
-    assert len(entities) >= min_num_evaluation, 'Too few entities to perform evaluation.'
+def run_evaluation(predicate):
+    entities, true_values = get_test_data(predicate)
+    sc = get_sentence_classifier(predicate)
     entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
@@ -97,30 +98,4 @@ def run_evaluation(predicate, entities, true_values, sc):
     ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
     print 'Overall:'
     ValueExtractorEvaluator.evaluate(true_values, entities, values)
-    
-def run_manual_evaluation(predicate):
-    entities, true_values = get_test_data(predicate)
-    sc = get_sentence_classifier(predicate)
-    run_evaluation(predicate, entities, true_values, sc)
-    
-def run_automatic_evaluation(predicate):
-    sc = get_sentence_classifier(predicate)
-    entities_and_values = select_all({'p': predicate})
-    #filter out entities used during training
-    entities_and_values = filter(lambda v: v not in sc.names, entities_and_values)[: evaluation_limit]
-    entities = dict(entities_and_values).keys()
-    #filter out entities which don't contain the value (i.e. we have no chance of learning it)
-    entities_and_values = filter(lambda (e, v): contains_segment(e, v), entities_and_values)
-    entities_and_values = map(lambda (e, v): (e, [v]), entities_and_values)
-    true_values = dict(entities_and_values)
-    run_evaluation(predicate, entities, true_values, sc)
-    
-def contains_segment(entity, value):
-    '''checks if value appears in article about entity'''
-    article = SentenceClassifier.get_articles([entity])[0]
-    value_as_sublist = value.replace('_', ' ').split()
-    return any(
-        contains_sublist(sentence, value_as_sublist)
-        for sentence in article
-    )
     

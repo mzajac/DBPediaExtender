@@ -2,16 +2,12 @@
 lang = 'en'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
-verbose = TRue
+verbose = True
 evaluation_mode = True
-manual_evaluation = False
 #limits number of candidates for learning
 candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 1000
-evaluation_limit = 1000
-#minimum number of entities used in evaluation 
-min_num_evaluation = 10
+training_limit = 1000 
 
 predicates = [
     'populationTotal',
@@ -21,7 +17,7 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][1:2]
+][0:1]
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
