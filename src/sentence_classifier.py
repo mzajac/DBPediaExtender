@@ -84,27 +84,25 @@ class SentenceClassifier:
       
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
-        subjects, objects = zip(*list(names)) #unzip
+        subjects, objects = zip(*list(names))
         subject_articles = SentenceClassifier.get_articles(subjects)
-        object_articles = SentenceClassifier.get_articles(objects)
         positive, negative = [], []
-        for subject, object, subject_article, object_article in izip(subjects, objects, subject_articles, object_articles):
-            for article, other_name in [(subject_article, object), (object_article, subject)]:
-                if article and other_name != '0': #there is no point in looking for occurences of zero
-                    pos = []
-                    for sentence in article:
-                        original_sentence = sentence[:]
-                        name_as_sublist = other_name.replace('_', ' ').split()
-                        if contains_sublist(sentence, name_as_sublist):
-                            sentence = lt.extract_vector_of_words(sentence)
-                            pos.append((sentence, original_sentence, name_as_sublist))
-                        else:
-                            negative.append(sentence)
-                    #if there is exactly one sentence referring to the searched value, simply add it to positive examples
-                    #if more select only sentences containing at least part of the predicate
-                    if len(pos) > 1:
-                        pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
-                    positive += pos
+        for other_name, article in izip(objects, subject_articles):
+            if article and other_name != '0': #there is no point in looking for occurences of zero
+                pos = []
+                for sentence in article:
+                    original_sentence = sentence[:]
+                    name_as_sublist = other_name.replace('_', ' ').split()
+                    if contains_sublist(sentence, name_as_sublist):
+                        sentence = lt.extract_vector_of_words(sentence)
+                        pos.append((sentence, original_sentence, name_as_sublist))
+                    else:
+                        negative.append(sentence)
+                #if there is exactly one sentence referring to the searched value, simply add it to positive examples
+                #if more select only sentences containing at least part of the predicate
+                if len(pos) > 1:
+                    pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
+                positive += pos
         return positive, negative
         
     def convert_to_vector_space(self, sentences):
@@ -128,7 +126,9 @@ class SentenceClassifier:
         vectors, _ = self.convert_to_vector_space(sentences)
         self.classifier = SVC(kernel='linear')
         self.classifier.fit(vectors, classes)
-        self.names = set(names)
+        self.entities = set(
+            e for e, v in names
+        )
         
     def predict(self, vectors):
         return map(int, list(self.classifier.predict(vectors)))

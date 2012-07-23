@@ -6,7 +6,7 @@ from itertools import izip
 from os.path import join
 
 from config import tests_path, verbose
-from sentence_classifier import get_sentence_classifier, SentenceClassifier, contains_sublist
+from sentence_classifier import get_sentence_classifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
 from sparql_access import select_all
@@ -81,6 +81,8 @@ def get_test_data(predicate):
 def run_evaluation(predicate):
     entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate)
+    #filter out entities used during training
+    entities = filter(lambda e: e not in sc.entities, entities)
     entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
