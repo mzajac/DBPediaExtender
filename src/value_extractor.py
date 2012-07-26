@@ -23,18 +23,10 @@ class ValueExtractor:
         
     @staticmethod
     def convert_training_data(data):
-        def sublist_index(lst, sublst):
-            n = len(sublst)
-            for i in xrange(len(lst) - n + 1):
-                if sublst == lst[i : i + n]:
-                    return i
-            raise IndexError
-            
         for sentence, value in data:
-            start = sublist_index(sentence, value)
-            end = start + len(value)
+            index = sentence.index(value)
             for i, word in enumerate(sentence):
-                sentence[i] = (sentence[i], str(int(start <= i < end)))
+                sentence[i] = (sentence[i], str(int(i == index)))
         return map(lambda (s, v): s, data)
         
     @staticmethod
@@ -74,7 +66,7 @@ class ValueExtractor:
         features = {
             'position': i,
         }
-        window_size = 5
+        window_size = 3
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
                 word = sentence[i + j]
@@ -95,7 +87,7 @@ class ValueExtractor:
         return features
         
     def train(self):
-        self.model = MalletCRF.train(self.features_collector, self.training_data, self.model_filename)
+        self.model = MalletCRF.train(self.features_collector, self.training_data, self.model_filename, trace=0)
 
     def extract_value(self, sentence):
         tagged_sentence = self.model.tag(sentence)

@@ -1,12 +1,19 @@
 #encoding: utf-8
 import sys
+import re
 from subprocess import Popen, PIPE
 from os.path import join
 from nltk.stem.porter import PorterStemmer
+from nltk.tag.stanford import NERTagger
 from nltk.corpus import stopwords
 from string import digits, punctuation
 
-from config import stanford_path
+from config import stanford_path, ner_model_path, ner_jar_path
+
+def replace_subsequence(l, a, b):
+    for i in range(len(l)):
+        if l[i : i+len(a)] == a:
+            l[i : i+len(a)] = b
 
 class LanguageToolsFactory:
     @staticmethod
@@ -41,6 +48,7 @@ class EnglishTools(LanguageTools):
     def __init__(self):
         self.lemmatizer = PorterStemmer()
         self.stopwords = set(stopwords.words('english'))
+        self.ner_tagger = NERTagger(ner_model_path, ner_jar_path)
         
     def split(self, segments, sentence_ending_segments='.!?'):
         sentences = []
@@ -63,6 +71,12 @@ class EnglishTools(LanguageTools):
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         out, _ = p.communicate(text)
         texts = out.split(separator_character)
+        segments = [
+            segment
+            for text in texts
+            for segment in text.split('\n')
+        ]
+        locations = self.get_geographic_entities(segments)
         tokenized_texts = []
         for text in texts:
             sentences = self.split(text.split('\n'))
@@ -71,15 +85,40 @@ class EnglishTools(LanguageTools):
             sentences = map(lambda s: filter(lambda w: w, s), sentences)
             sentences = filter(lambda s: s, sentences)
             sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
+            sentences = map(lambda s: self.join_segments_constituting_en_entity(s, locations), sentences)
             tokenized_texts.append(sentences)
         return tokenized_texts
+        
+    def get_geographic_entities(self, text):
+        return set([
+            segment for segment, tag in self.ner_tagger.tag(text)
+            if tag == 'LOCATION'
+        ])
 
+    def join_segments_constituting_en_entity(self, sentence, locations):
+        new_sentence = []
+        i = 0
+        while i < len(sentence):
+            if sentence[i] not in locations:
+                new_sentence.append(sentence[i])
+                i += 1
+            else:
+                start = i
+                while sentence[i] in locations:
+                    i += 1
+                new_sentence.append(' '.join(sentence[start : i]))
+        return new_sentence
+                
     def lemmatize(self, words):
         return map(lambda w: self.lemmatizer.stem_word(w), words)
         
     def remove_stop_words(self, words):
         return filter(lambda w: w.encode('utf8') not in self.stopwords, words)
+        
+    def extract_entity_name(self, name):
+        name = name.replace('_', ' ')
+        return re.split(',|\(', name)[0]
 
 class PolishTools(LanguageTools):
     pass
-    
+

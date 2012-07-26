@@ -7,7 +7,7 @@ evaluation_mode = True
 #limits number of candidates for learning
 candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 1000
+training_limit = 100
 
 predicates = [
     'populationTotal',
@@ -17,15 +17,18 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][1:2]
+][0:1]
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
 main_path = '/home/mz/Dokumenty/dbpedia-enricher/'
 ext_path = main_path + 'ext/'
 stanford_path = ext_path + 'stanford-parser'
-java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26'
-mallet_path = ext_path + 'mallet-0.4'
+stanford_ner_path = ext_path + 'stanford-ner-2012-07-09/'
+ner_model_path = stanford_ner_path + 'classifiers/english.conll.4class.distsim.crf.ser'
+ner_jar_path = stanford_ner_path + 'stanford-ner.jar'
+java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26/bin/java'
+mallet_path = ext_path + 'mallet-0.4/bin/'
 raw_articles_path = '/media/Data/Virtuoso/articles'
 cache_path = main_path + 'cache/'
 articles_cache_path = cache_path + '%s/articles/%%s' % lang

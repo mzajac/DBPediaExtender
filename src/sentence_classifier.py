@@ -18,10 +18,6 @@ from pickler import Pickler
 from language_tools import LanguageToolsFactory
 
 lt = LanguageToolsFactory.get_language_tools(lang)
-
-def contains_sublist(lst, sublst):
-    n = len(sublst)
-    return any((sublst == lst[i : i+n]) for i in xrange(len(lst) - n + 1))
     
 def split_camelcase(s):
     ret = []
@@ -83,19 +79,20 @@ class SentenceClassifier:
         return articles
       
     def collect_sentences(self, names):
-        '''classifies all sentences based on the fact that they contain a reference to the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
+        '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
         subjects, objects = zip(*list(names))
         subject_articles = SentenceClassifier.get_articles(subjects)
+        subjects = map(lambda subject: lt.extract_entity_name(subject), subjects) 
+        objects = map(lambda object: lt.extract_entity_name(object), objects)
         positive, negative = [], []
-        for other_name, article in izip(objects, subject_articles):
-            if article and other_name != '0': #there is no point in looking for occurences of zero
+        for subject, object, article in izip(subjects, objects, subject_articles):
+            if article and object != '0': #there is no point in looking for occurences of zero
                 pos = []
                 for sentence in article:
                     original_sentence = sentence[:]
-                    name_as_sublist = other_name.replace('_', ' ').split()
-                    if contains_sublist(sentence, name_as_sublist):
+                    if object in sentence:
                         sentence = lt.extract_vector_of_words(sentence)
-                        pos.append((sentence, original_sentence, name_as_sublist))
+                        pos.append((sentence, original_sentence, object))
                     else:
                         negative.append(sentence)
                 #if there is exactly one sentence referring to the searched value, simply add it to positive examples
