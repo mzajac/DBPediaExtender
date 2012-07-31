@@ -68,6 +68,12 @@ def count_entities_of_type(type):
     }''' % (data_source, type)
     return int(get_data(query)['results']['bindings'][0]['callret-0']['value'])
     
+def select_entities_of_type(type):
+    query = '''SELECT * FROM <%s> WHERE {
+        ?s a <%s>.
+    }''' % (data_source, type)
+    return get_results(query)
+    
 def select_entities_of_types_not_in_relation(types, predicate):
     query = [
         '''PREFIX dbpedia-owl: <%s/ontology/>
@@ -86,6 +92,12 @@ def select_entities_of_types_not_in_relation(types, predicate):
     query.append(' || '.join(subquery))
     query.append(')}')
     query = '\n'.join(query)
+    return get_results(query)
+    
+def select_all_entities():
+    query = '''SELECT DISTINCT ?s FROM <%s> WHERE {
+      ?s ?p ?o.
+    }''' % data_source
     return get_results(query)
     
 if __name__ == '__main__':

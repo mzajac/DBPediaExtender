@@ -6,6 +6,7 @@ from nltk.tag.crf import MalletCRF
 
 from config import lang, java_path, mallet_path, models_cache_path
 from language_tools import LanguageToolsFactory
+from collect_entities import entities_types
 
 lt = LanguageToolsFactory.get_language_tools(lang)
 
@@ -70,6 +71,7 @@ class ValueExtractor:
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
                 word = sentence[i + j]
+                is_entity = lt.is_entity(word)
                 word_features = {
                     'token': word,
                     'lemma': lt.lemmatize([word.lower()])[0],
@@ -81,7 +83,11 @@ class ValueExtractor:
                     'starts_with_capital': word[0].isupper(),
                     'numeric': is_numeric(word),
                     'normalized': normalize(word),
+                    'entity': is_entity,
                 }
+                if j == 0:
+                    for k in xrange(len(entities_types)):
+                        features['type %d' % k] = is_entity and k in lt.entities[word]
                 for name, feature in word_features.iteritems():
                     features['%d %s' % (j, name)] = feature
         return features

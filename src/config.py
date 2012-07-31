@@ -1,5 +1,5 @@
 #language code
-lang = 'en'
+lang = 'en'#'pl'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
 verbose = True
@@ -7,7 +7,7 @@ evaluation_mode = True
 #limits number of candidates for learning
 candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 100
+training_limit = 1000
 
 predicates = [
     'populationTotal',
@@ -17,7 +17,7 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][0:1]
+][1:2]
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
@@ -30,7 +30,9 @@ ner_jar_path = stanford_ner_path + 'stanford-ner.jar'
 java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26/bin/java'
 mallet_path = ext_path + 'mallet-0.4/bin/'
 raw_articles_path = '/media/Data/Virtuoso/articles'
+wikidump_path = '/media/Data/Virtuoso/wiki'
 cache_path = main_path + 'cache/'
+entities_path = cache_path + '%s/entities.pkl' % lang
 articles_cache_path = cache_path + '%s/articles/%%s' % lang
 candidates_cache_path = cache_path + '%s/candidates/%%s' % lang
 models_cache_path = cache_path + '%s/models/%%s' % lang

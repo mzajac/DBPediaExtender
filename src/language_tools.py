@@ -8,12 +8,11 @@ from nltk.tag.stanford import NERTagger
 from nltk.corpus import stopwords
 from string import digits, punctuation
 
-from config import stanford_path, ner_model_path, ner_jar_path
-
-def replace_subsequence(l, a, b):
-    for i in range(len(l)):
-        if l[i : i+len(a)] == a:
-            l[i : i+len(a)] = b
+from config import stanford_path, ner_model_path, ner_jar_path, entities_path
+from pickler import Pickler
+            
+def extract_shortened_name(name):
+    return re.split(',|\(', name.replace('_', ' '))[0]
 
 class LanguageToolsFactory:
     @staticmethod
@@ -49,6 +48,10 @@ class EnglishTools(LanguageTools):
         self.lemmatizer = PorterStemmer()
         self.stopwords = set(stopwords.words('english'))
         self.ner_tagger = NERTagger(ner_model_path, ner_jar_path)
+        self.entities = Pickler.load(entities_path)
+        
+    def is_entity(self, segment):
+        return segment in self.entities
         
     def split(self, segments, sentence_ending_segments='.!?'):
         sentences = []
@@ -76,7 +79,7 @@ class EnglishTools(LanguageTools):
             for text in texts
             for segment in text.split('\n')
         ]
-        locations = self.get_geographic_entities(segments)
+#        locations = self.get_geographic_entities(segments)
         tokenized_texts = []
         for text in texts:
             sentences = self.split(text.split('\n'))
@@ -85,7 +88,7 @@ class EnglishTools(LanguageTools):
             sentences = map(lambda s: filter(lambda w: w, s), sentences)
             sentences = filter(lambda s: s, sentences)
             sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
-            sentences = map(lambda s: self.join_segments_constituting_en_entity(s, locations), sentences)
+            sentences = map(lambda s: self.join_segments_constituting_en_entity(s), sentences)
             tokenized_texts.append(sentences)
         return tokenized_texts
         
@@ -94,8 +97,8 @@ class EnglishTools(LanguageTools):
             segment for segment, tag in self.ner_tagger.tag(text)
             if tag == 'LOCATION'
         ])
-
-    def join_segments_constituting_en_entity(self, sentence, locations):
+        
+    def join_locations(self, sentence, locations):
         new_sentence = []
         i = 0
         while i < len(sentence):
@@ -108,16 +111,44 @@ class EnglishTools(LanguageTools):
                     i += 1
                 new_sentence.append(' '.join(sentence[start : i]))
         return new_sentence
-                
+        
+    def join_entities(self, sentence, max_entity_len=5):
+        def construct_entity(segments):
+            ret = ''
+            for segment in segments:
+                if segment == ',':
+                    ret += ', '
+                elif segment == '(':
+                    ret += '('
+                elif segment == ')':
+                    ret += ') '
+                else:
+                    ret += segment + ' '
+            if ret[-1] == ' ':
+                ret = ret[:-1]
+            return extract_shortened_name(ret)
+        
+        length = 2
+        while length < max_entity_len:
+            for i in xrange(len(sentence) - length + 1):
+                possible_entity = construct_entity(sentence[i : i+length])
+                if self.is_entity(possible_entity):
+                    sentence[i] = possible_entity
+                    del sentence[i+1 : i+length]
+                    break
+            else:
+                length += 1
+        return sentence
+
+    def join_segments_constituting_en_entity(self, sentence, locations=None):
+#        return self.join_entities(self.join_locations(sentence, locations))
+        return self.join_entities(sentence)
+                        
     def lemmatize(self, words):
         return map(lambda w: self.lemmatizer.stem_word(w), words)
         
     def remove_stop_words(self, words):
         return filter(lambda w: w.encode('utf8') not in self.stopwords, words)
-        
-    def extract_entity_name(self, name):
-        name = name.replace('_', ' ')
-        return re.split(',|\(', name)[0]
 
 class PolishTools(LanguageTools):
     pass

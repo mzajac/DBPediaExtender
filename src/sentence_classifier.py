@@ -15,7 +15,7 @@ from config import lang, articles_cache_path, models_cache_path, training_limit,
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
-from language_tools import LanguageToolsFactory
+from language_tools import LanguageToolsFactory, extract_shortened_name
 
 lt = LanguageToolsFactory.get_language_tools(lang)
     
@@ -45,7 +45,7 @@ class SentenceClassifier:
         Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
         
     @staticmethod
-    def collect_words(sentences, threshold=5):
+    def collect_words(sentences, threshold=10):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
@@ -82,8 +82,8 @@ class SentenceClassifier:
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
         subjects, objects = zip(*list(names))
         subject_articles = SentenceClassifier.get_articles(subjects)
-        subjects = map(lambda subject: lt.extract_entity_name(subject), subjects) 
-        objects = map(lambda object: lt.extract_entity_name(object), objects)
+        subjects = map(lambda subject: extract_shortened_name(subject), subjects) 
+        objects = map(lambda object: extract_shortened_name(object), objects)
         positive, negative = [], []
         for subject, object, article in izip(subjects, objects, subject_articles):
             if article and object != '0': #there is no point in looking for occurences of zero
