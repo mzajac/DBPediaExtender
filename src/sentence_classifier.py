@@ -39,8 +39,7 @@ def get_sentence_classifier(predicate):
 class SentenceClassifier:
     def __init__(self, predicate):
         self.predicate = predicate
-        self.predicate_words = lt.lemmatize(split_camelcase(predicate))
-        self.predicate_words = map(lambda w: w.lower(), self.predicate_words)
+        self.predicate_words = map(lambda w: w.lower(), lt.lemmatize(split_camelcase(predicate)))
         self.train()
         Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
         

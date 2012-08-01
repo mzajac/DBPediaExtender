@@ -59,6 +59,7 @@ class ValueExtractor:
                 ('0' if char.isdigit() else 
                  'a' if char.islower() else
                  'A' if char.isupper() else
+                 ' ' if char == ' ' else
                  '!')
                 for char in word    
             ])
@@ -78,9 +79,9 @@ class ValueExtractor:
                     'recent_year': recent_year(word),
                     'other_year': other_year(word),
                     'alldigits': alldigits(word),
-                    'allalpha': all(d.isalpha() for d in word),
+                    'allalpha': all(d.isalpha() or d == ' ' for d in word),
                     'allcapitals': all(d.isupper() for d in word),
-                    'starts_with_capital': word[0].isupper(),
+                    'starts_with_capital': all(segment.isupper() for segment in word.split()),
                     'numeric': is_numeric(word),
                     'normalized': normalize(word),
                     'entity': is_entity,
@@ -97,16 +98,11 @@ class ValueExtractor:
 
     def extract_value(self, sentence):
         tagged_sentence = self.model.tag(sentence)
-        values = []
-        value = []
-        for w, tag in tagged_sentence:
-            if tag == '1':
-                value.append(w)
-            elif value:
-                values.append(' '.join(value))
-                value = []
-        if value:
-            values.append(' '.join(value))
+        values = [
+            segment
+            for segment, tag in tagged_sentence
+            if tag == '1'
+        ]
         if len(values) >= 1:
             return values[0]
                    

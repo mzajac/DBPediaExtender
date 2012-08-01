@@ -7,7 +7,7 @@ evaluation_mode = True
 #limits number of candidates for learning
 candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 1000
+training_limit = 10000
 
 predicates = [
     'populationTotal',
@@ -17,7 +17,7 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][1:2]
+][0:1]
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
