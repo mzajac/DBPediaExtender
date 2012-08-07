@@ -88,13 +88,14 @@ def run_evaluation(predicate):
     print 'Model trained on %d articles.' % len(sc.entities)
     entities = filter(lambda e: e not in sc.entities, entities)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
+    print '%d entities were considered.' % len(entities)
     entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = [
         ve.extract_value(sentence)
         for entity, sentence in izip(entities, sentences)
     ]
-    print '%d entities were considered.' % len(entities)
+    print values
     _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, sentences)
     print 'Sentence classifier:'
     SentenceClassifierEvaluator.evaluate(true_values, entities, sentences)

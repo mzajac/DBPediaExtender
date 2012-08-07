@@ -7,7 +7,7 @@ evaluation_mode = True
 #limits number of candidates for learning
 candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 10000
+training_limit = 1000
 
 predicates = [
     'populationTotal',
@@ -17,7 +17,7 @@ predicates = [
     'areaTotal',
     'mountainRange',
     'elevation',
-][0:1]
+][1:2]
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
@@ -33,6 +33,7 @@ raw_articles_path = '/media/Data/Virtuoso/articles'
 wikidump_path = '/media/Data/Virtuoso/wiki'
 cache_path = main_path + 'cache/'
 entities_path = cache_path + '%s/entities.pkl' % lang
+synonyms_path = cache_path + '%s/synonyms.pkl' % lang
 articles_cache_path = cache_path + '%s/articles/%%s' % lang
 candidates_cache_path = cache_path + '%s/candidates/%%s' % lang
 models_cache_path = cache_path + '%s/models/%%s' % lang

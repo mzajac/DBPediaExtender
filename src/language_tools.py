@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 from string import digits, punctuation
 
 from config import stanford_path, ner_model_path, ner_jar_path, entities_path
+from construct_synonym_set import get_synonyms
 from pickler import Pickler
             
 def extract_shortened_name(name):
@@ -24,6 +25,10 @@ class LanguageToolsFactory:
         raise NotImplementedError()
         
 class LanguageTools:
+    def __init__(self):
+        self.entities = Pickler.load(entities_path)
+        self.synonyms = get_synonyms()
+        
     def remove_nonwords(self, sentence):
         return [
             w for w in sentence
@@ -42,13 +47,19 @@ class LanguageTools:
         sentence = self.remove_stop_words(sentence)
         sentence = self.lemmatize(sentence)
         return sentence
+        
+    def replace_synonyms(self, sentence):
+        for i, segment in enumerate(sentence):
+            if segment in self.synonyms:
+                sentence[i] = self.synonyms[segment][0]
+        return sentence
 
 class EnglishTools(LanguageTools):
     def __init__(self):
+        LanguageTools.__init__(self)
         self.lemmatizer = PorterStemmer()
         self.stopwords = set(stopwords.words('english'))
         self.ner_tagger = NERTagger(ner_model_path, ner_jar_path)
-        self.entities = Pickler.load(entities_path)
         
     def is_entity(self, segment):
         return segment in self.entities
@@ -79,7 +90,6 @@ class EnglishTools(LanguageTools):
             for text in texts
             for segment in text.split('\n')
         ]
-#        locations = self.get_geographic_entities(segments)
         tokenized_texts = []
         for text in texts:
             sentences = self.split(text.split('\n'))
@@ -89,6 +99,7 @@ class EnglishTools(LanguageTools):
             sentences = filter(lambda s: s, sentences)
             sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
             sentences = map(lambda s: self.join_segments_constituting_en_entity(s), sentences)
+            sentences = map(lambda s: self.replace_synonyms(s), sentences)
             tokenized_texts.append(sentences)
         return tokenized_texts
         
@@ -126,7 +137,7 @@ class EnglishTools(LanguageTools):
                     ret += segment + ' '
             if ret[-1] == ' ':
                 ret = ret[:-1]
-            return extract_shortened_name(ret)
+            return ret
         
         length = 2
         while length < max_entity_len:
@@ -141,7 +152,6 @@ class EnglishTools(LanguageTools):
         return sentence
 
     def join_segments_constituting_en_entity(self, sentence, locations=None):
-#        return self.join_entities(self.join_locations(sentence, locations))
         return self.join_entities(sentence)
                         
     def lemmatize(self, words):

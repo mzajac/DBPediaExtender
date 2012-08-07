@@ -11,11 +11,11 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import classification_report
 
-from config import lang, articles_cache_path, models_cache_path, training_limit, verbose
+from config import lang, articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
-from language_tools import LanguageToolsFactory, extract_shortened_name
+from language_tools import LanguageToolsFactory
 
 lt = LanguageToolsFactory.get_language_tools(lang)
     
@@ -81,8 +81,6 @@ class SentenceClassifier:
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
         subjects, objects = zip(*list(names))
         subject_articles = SentenceClassifier.get_articles(subjects)
-        subjects = map(lambda subject: extract_shortened_name(subject), subjects) 
-        objects = map(lambda object: extract_shortened_name(object), objects)
         positive, negative = [], []
         for subject, object, article in izip(subjects, objects, subject_articles):
             if article and object != '0': #there is no point in looking for occurences of zero
@@ -108,6 +106,9 @@ class SentenceClassifier:
         
     def train(self):
         names = select_all({'p': self.predicate})[: training_limit]
+        if evaluation_mode:
+            from evaluator import get_test_data
+            names = filter(lambda (entity, _): entity not in get_test_data(self.predicate)[0], names)
         positive, negative = self.collect_sentences(names)
         self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
         positive = map(lambda (s, os, v): s, positive)
