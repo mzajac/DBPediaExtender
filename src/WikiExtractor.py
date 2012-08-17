@@ -50,6 +50,11 @@ import bz2
 import os.path
 from urllib2 import unquote
 
+#MZ
+from config import entities_path
+from pickler import Pickler
+entities = Pickler.load(entities_path)
+
 ### PARAMS ####################################################################
 
 prefix = 'http://it.wikipedia.org/wiki/'
@@ -414,7 +419,11 @@ class WikiExtractor:
         return article_title, link_text
 
     def __get_anchor_tag(self, document_title, link_text):
-        if not link_text: return ''
+        if not link_text:
+            return ''
+        link_name = unquote(get_wiki_document_url(document_title, '').replace('_', ' '))
+        if link_name in entities:
+            return link_name.decode('utf-8')
         return link_text
 
     def __handle_unicode(self, entity):

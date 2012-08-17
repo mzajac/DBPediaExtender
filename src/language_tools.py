@@ -14,6 +14,15 @@ from pickler import Pickler
             
 def extract_shortened_name(name):
     return re.split(',|\(', name.replace('_', ' '))[0]
+    
+def is_numeric(s):
+    if s.lower() in ['infinity', 'nan']:
+        return False
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 class LanguageToolsFactory:
     @staticmethod
@@ -39,6 +48,12 @@ class LanguageTools:
         '''converts numerals to base form e.g. 100,000 becomes 100000'''
         return [
             w.replace(',', '') if w != ',' else w for w in sentence 
+        ]
+        
+    def convert_floats_to_integers(self, sentence):
+        print sentence
+        return [
+            str(int(round(float(w)))) if is_numeric(w) else w for w in sentence 
         ]
         
     def extract_vector_of_words(self, sentence):
@@ -98,6 +113,7 @@ class EnglishTools(LanguageTools):
             sentences = map(lambda s: filter(lambda w: w, s), sentences)
             sentences = filter(lambda s: s, sentences)
             sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
+            sentences = map(lambda s: self.convert_floats_to_integers(s), sentences)
             sentences = map(lambda s: self.join_segments_constituting_en_entity(s), sentences)
             sentences = map(lambda s: self.replace_synonyms(s), sentences)
             tokenized_texts.append(sentences)
@@ -120,23 +136,18 @@ class EnglishTools(LanguageTools):
                 start = i
                 while sentence[i] in locations:
                     i += 1
-                new_sentence.append(' '.join(sentence[start : i]))
+                new_sentence.append('_'.join(sentence[start : i]))
         return new_sentence
         
-    def join_entities(self, sentence, max_entity_len=5):
+    def join_entities(self, sentence, max_entity_len=7):
         def construct_entity(segments):
             ret = ''
-            for segment in segments:
-                if segment == ',':
-                    ret += ', '
-                elif segment == '(':
-                    ret += '('
-                elif segment == ')':
-                    ret += ') '
+            for i, segment in enumerate(segments):
+                last_segment = '' if i == 0 else segments[i-1]
+                if segment in ',)' or last_segment == '(' or not ret:
+                    ret += segment
                 else:
-                    ret += segment + ' '
-            if ret[-1] == ' ':
-                ret = ret[:-1]
+                    ret += ' ' + segment
             return ret
         
         length = 2
@@ -144,7 +155,7 @@ class EnglishTools(LanguageTools):
             for i in xrange(len(sentence) - length + 1):
                 possible_entity = construct_entity(sentence[i : i+length])
                 if self.is_entity(possible_entity):
-                    sentence[i] = possible_entity
+                    sentence[i] = possible_entity.replace(' ', '_')
                     del sentence[i+1 : i+length]
                     break
             else:

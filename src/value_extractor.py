@@ -5,7 +5,7 @@ import nltk
 from nltk.tag.crf import MalletCRF
 
 from config import lang, java_path, mallet_path, models_cache_path
-from language_tools import LanguageToolsFactory
+from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 
 lt = LanguageToolsFactory.get_language_tools(lang)
@@ -26,7 +26,7 @@ class ValueExtractor:
     def convert_training_data(data):
         for sentence, value in data:
             index = sentence.index(value)
-            for i, word in enumerate(sentence):
+            for i in xrange(len(sentence)):
                 sentence[i] = (sentence[i], str(int(i == index)))
         return map(lambda (s, v): s, data)
         
@@ -46,13 +46,6 @@ class ValueExtractor:
             
         def alldigits(word):
             return all(d.isdigit() for d in word)
-            
-        def is_numeric(s):
-            try:
-                float(s)
-                return True
-            except ValueError:
-                return False
                 
         def normalize(word):
             return ''.join([
@@ -104,5 +97,8 @@ class ValueExtractor:
             if tag == '1'
         ]
         if len(values) >= 1:
+            #if value is numeric round to integer
+            if is_numeric(values[0]):
+                return str(int(round(float(values[0]))))
             return values[0]
                    

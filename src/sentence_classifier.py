@@ -15,7 +15,7 @@ from config import lang, articles_cache_path, models_cache_path, training_limit,
 from sparql_access import select_all
 from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
-from language_tools import LanguageToolsFactory
+from language_tools import LanguageToolsFactory, is_numeric
 
 lt = LanguageToolsFactory.get_language_tools(lang)
     
@@ -78,20 +78,24 @@ class SentenceClassifier:
         return articles
       
     def collect_sentences(self, names):
-        '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''      
+        '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''
         subjects, objects = zip(*list(names))
         subject_articles = SentenceClassifier.get_articles(subjects)
         positive, negative = [], []
         for subject, object, article in izip(subjects, objects, subject_articles):
-            if article and object != '0': #there is no point in looking for occurences of zero
+            if is_numeric(object):
+                object = str(int(round(float(object))))
+            if object == 0:
+                continue
+            if article:
                 pos = []
                 for sentence in article:
-                    original_sentence = sentence[:]
+                    original_sentence = sentence[:]            
                     if object in sentence:
                         sentence = lt.extract_vector_of_words(sentence)
                         pos.append((sentence, original_sentence, object))
                     else:
-                        negative.append(sentence)
+                        negative.append(sentence)                        
                 #if there is exactly one sentence referring to the searched value, simply add it to positive examples
                 #if more select only sentences containing at least part of the predicate
                 if len(pos) > 1:
