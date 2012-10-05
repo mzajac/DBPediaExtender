@@ -8,12 +8,16 @@ from collections import defaultdict
 from config import data_source, sparql_endpoint
 
 def full_predicate_name(name):
-    if name in ['completionDate']:
-        return '%s/property/%s' % (data_source, name)
-    return '%s/ontology/%s' % (data_source, name)
+    return '%s/property/%s' % (data_source, name.decode('utf-8'))
+
+def full_resource_name(name):
+    return '%s/resource/%s' % (data_source, name.decode('utf-8'))
+    
+def full_type_name(name):
+    return 'http://dbpedia.org/ontology/%s' % name
 
 def strip_url_prefix(s):
-    return s[28:]
+    return s[len(data_source) + len('/resource/') : ]
 
 def get_data(query):
     params = {
@@ -64,7 +68,7 @@ def select_types(predicate):
     query = '''SELECT ?s, ?type FROM <%s> WHERE {
           ?s <%s> ?o.
           ?s rdf:type ?type.
-    }''' % (data_source, full_predicate_name(predicate))
+    }''' % (data_source, full_type_name(predicate))
     data = get_data(query)['results']['bindings']
     types_dict = defaultdict(list)
     for line in data:
@@ -107,7 +111,7 @@ def select_entities_of_type_in_relation(type, predicate):
     query = '''SELECT ?s, ?o FROM <%s> WHERE {
         ?s a <%s>.
         ?s <%s> ?o.
-    }''' % (data_source, full_predicate_name(type), full_predicate_name(predicate))
+    }''' % (data_source, full_type_name(type), full_predicate_name(predicate))
     return get_pairs(query)
     
 def select_all_entities():

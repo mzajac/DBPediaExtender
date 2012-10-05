@@ -8,7 +8,7 @@ from nltk.tag.stanford import NERTagger
 from nltk.corpus import stopwords
 from string import digits, punctuation
 
-from config import stanford_path, ner_model_path, ner_jar_path, entities_path
+from config import entities_path
 from construct_synonym_set import get_synonyms
 from pickler import Pickler
             
@@ -28,8 +28,10 @@ class LanguageToolsFactory:
     @staticmethod
     def get_language_tools(lang):
         if lang == 'en':
+            from config import stanford_path, ner_model_path, ner_jar_path
             return EnglishTools()
         if lang == 'pl':
+            from config import segment_path
             return PolishTools()
         raise NotImplementedError()
         
@@ -68,62 +70,6 @@ class LanguageTools:
             if segment in self.synonyms:
                 sentence[i] = self.synonyms[segment][0]
         return sentence
-
-class EnglishTools(LanguageTools):
-    def __init__(self):
-        LanguageTools.__init__(self)
-        self.lemmatizer = PorterStemmer()
-        self.stopwords = set(stopwords.words('english'))
-        self.ner_tagger = NERTagger(ner_model_path, ner_jar_path)
-        
-    def is_entity(self, segment):
-        return segment in self.entities
-        
-    def split(self, segments, sentence_ending_segments='.!?'):
-        sentences = []
-        sentence = []
-        for segment in segments:
-            sentence.append(segment)
-            if segment in sentence_ending_segments:
-                sentences.append(sentence)
-                sentence = []
-        return sentences
-        
-    def tokenize(self, texts):
-        #to improve tokenizer performance all texts are combined into one text separated by a special character
-        #then output is separated again based on occurence of that character
-        separator_character = '~'
-        #beforehand I remove all occurences of the separator
-        texts = map(lambda text: text.replace(separator_character, ''), texts)
-        text = (' %s ' % separator_character).join(texts)
-        command = 'java -cp %s/stanford-parser.jar edu.stanford.nlp.process.PTBTokenizer -options "normalizeParentheses=false"' % stanford_path
-        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
-        out, _ = p.communicate(text)
-        texts = out.split(separator_character)
-        segments = [
-            segment
-            for text in texts
-            for segment in text.split('\n')
-        ]
-        tokenized_texts = []
-        for text in texts:
-            sentences = self.split(text.split('\n'))
-            if sentences[-1] == ['']:
-                sentences.pop()
-            sentences = map(lambda s: filter(lambda w: w, s), sentences)
-            sentences = filter(lambda s: s, sentences)
-            sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
-            sentences = map(lambda s: self.convert_floats_to_integers(s), sentences)
-            sentences = map(lambda s: self.join_segments_constituting_en_entity(s), sentences)
-            sentences = map(lambda s: self.replace_synonyms(s), sentences)
-            tokenized_texts.append(sentences)
-        return tokenized_texts
-        
-    def get_geographic_entities(self, text):
-        return set([
-            segment for segment, tag in self.ner_tagger.tag(text)
-            if tag == 'LOCATION'
-        ])
         
     def join_locations(self, sentence, locations):
         new_sentence = []
@@ -164,13 +110,73 @@ class EnglishTools(LanguageTools):
 
     def join_segments_constituting_en_entity(self, sentence, locations=None):
         return self.join_entities(sentence)
-                        
+        
+    def is_entity(self, segment):
+        return segment in self.entities
+        
+
+class EnglishTools(LanguageTools):
+    def __init__(self):
+        LanguageTools.__init__(self)
+        self.lemmatizer = PorterStemmer()
+        self.stopwords = set(stopwords.words('english'))
+        self.ner_tagger = NERTagger(ner_model_path, ner_jar_path)
+        
+    def tokenize(self, texts):
+        #to improve tokenizer performance all texts are combined into one text separated by a special character
+        #then output is separated again based on occurence of that character
+        separator_character = '~'
+        #beforehand I remove all occurences of the separator
+        texts = map(lambda text: text.replace(separator_character, ''), texts)
+        text = (' %s ' % separator_character).join(texts)
+        command = 'java -cp %s/stanford-parser.jar edu.stanford.nlp.process.PTBTokenizer -options "normalizeParentheses=false"' % stanford_path
+        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+        out, _ = p.communicate(text)
+        texts = out.split(separator_character)
+        segments = [
+            segment
+            for text in texts
+            for segment in text.split('\n')
+        ]
+        tokenized_texts = []
+        for text in texts:
+            sentences = self.split(text.split('\n'))
+            if sentences[-1] == ['']:
+                sentences.pop()
+            sentences = map(lambda s: filter(lambda w: w, s), sentences)
+            sentences = filter(lambda s: s, sentences)
+            sentences = map(lambda s: self.convert_numerals_to_base_form(s), sentences)
+            sentences = map(lambda s: self.convert_floats_to_integers(s), sentences)
+            sentences = map(lambda s: self.join_segments_constituting_en_entity(s), sentences)
+            sentences = map(lambda s: self.replace_synonyms(s), sentences)
+            tokenized_texts.append(sentences)
+        return tokenized_texts
+        
+    def get_geographic_entities(self, text):
+        return set([
+            segment for segment, tag in self.ner_tagger.tag(text)
+            if tag == 'LOCATION'
+        ])
+                
     def lemmatize(self, words):
         return map(lambda w: self.lemmatizer.stem_word(w), words)
         
     def remove_stop_words(self, words):
         return filter(lambda w: w.encode('utf8') not in self.stopwords, words)
+        
 
 class PolishTools(LanguageTools):
-    pass
+    def tokenize(self, texts):
+        print texts
+        raise NotImplementedError()
+        command = '%s/bin/segment -s segment-1.3.6/bin/segment.srx -l pl -i in -o out' % segment_path
+        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+        out, _ = p.communicate(text)
+        
+    def lemmatize(self, words):
+        raise NotImplementedError()
+        
+    def remove_stop_words(self, words):
+        raise NotImplementedError()
+
 
