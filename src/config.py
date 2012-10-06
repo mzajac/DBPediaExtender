@@ -3,11 +3,11 @@ lang = 'pl'#'en'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
 verbose = True
-evaluation_mode = True
+evaluation_mode = False
 #limits number of candidates for learning
-candidates_limit = 100
+candidates_limit = 10
 #limits number of triples used in training and evaluation
-training_limit = 10000
+training_limit = 100
 
 #English
 #predicates = [
@@ -52,9 +52,4 @@ mallet_path = ext_path + 'mallet-0.4/bin/'
 
 #English
 #stanford_path = ext_path + 'stanford-parser'
-#stanford_ner_path = ext_path + 'stanford-ner-2012-07-09/'
-#ner_model_path = stanford_ner_path + 'classifiers/english.conll.4class.distsim.crf.ser'
-#ner_jar_path = stanford_ner_path + 'stanford-ner.jar'
 
-#Polish
-segment_path = ext_path + 'segment-1.3.6'
