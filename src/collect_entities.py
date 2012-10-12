@@ -31,7 +31,6 @@ entities_types = [
     'MountainRange',
     'Valley',
     'Volcano',
-    'Cave',
     'Mountain'
 ]
 

@@ -1,14 +1,13 @@
 import os
 import sys
-
 import nltk
 from nltk.tag.crf import MalletCRF
 
-from config import lang, java_path, mallet_path, models_cache_path
+from config import java_path, mallet_path, models_cache_path
 from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 
-lt = LanguageToolsFactory.get_language_tools(lang)
+lt = LanguageToolsFactory.get_language_tools()
 
 class ValueExtractor:
     def __init__(self, predicate, training_data):
@@ -25,7 +24,8 @@ class ValueExtractor:
     @staticmethod
     def convert_training_data(data):
         for sentence, value in data:
-            index = sentence.index(value)
+            lemmas = [word.lemma for word in sentence]
+            index = lemmas.index(value)
             for i in xrange(len(sentence)):
                 sentence[i] = (sentence[i], str(int(i == index)))
         return map(lambda (s, v): s, data)
@@ -57,18 +57,18 @@ class ValueExtractor:
                 for char in word    
             ])
             
-        sentence = map(lambda w: w.decode('utf-8'), sentence)
         features = {
             'position': i,
         }
         window_size = 3
         for j in xrange(-window_size, window_size + 1):
             if 0 <= i + j < len(sentence):
-                word = sentence[i + j]
+                word = sentence[i + j].lemma
                 is_entity = lt.is_entity(word)
                 word_features = {
-                    'token': word,
-                    'lemma': lt.lemmatize([word.lower()])[0],
+                    'token': sentence[i + j].segment,
+                    'tag': sentence[i + j].tag,
+                    'lemma': word,
                     'recent_year': recent_year(word),
                     'other_year': other_year(word),
                     'alldigits': alldigits(word),

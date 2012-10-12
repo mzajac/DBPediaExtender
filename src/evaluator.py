@@ -85,8 +85,8 @@ def run_evaluation(predicate):
     entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate)
     #filter out entities used during training
-    print 'Model trained on %d articles.' % len(sc.entities)
     entities = filter(lambda e: e not in sc.entities, entities)
+    print 'Model trained on %d articles.' % len(sc.entities)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
     print '%d entities were considered.' % len(entities)
     entities, sentences = sc.extract_sentences(entities)

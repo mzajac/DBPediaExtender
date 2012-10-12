@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -8,16 +7,17 @@ from collections import defaultdict
 from random import shuffle
 
 from sklearn.svm import SVC
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 
-from config import lang, articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode
+from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode
 from sparql_access import select_all
-from article_access import get_article, ArticleNotFoundError
 from pickler import Pickler
 from language_tools import LanguageToolsFactory, is_numeric
+from article_access import get_article, prepare_articles
 
-lt = LanguageToolsFactory.get_language_tools(lang)
+lt = LanguageToolsFactory.get_language_tools()
     
 def split_camelcase(s):
     ret = []
@@ -37,96 +37,63 @@ def get_sentence_classifier(predicate):
         return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate):
-        self.predicate = predicate
-        self.predicate_words = map(lambda w: w.lower(), lt.lemmatize(split_camelcase(predicate)))
-        self.train()
-        Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
+    def __init__(self, predicate=None):
+        if predicate is not None:
+            self.predicate = predicate
+            self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
+            self.train()
+#            Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
         
-    @staticmethod
-    def collect_words(sentences, threshold=10):
-        '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
-        vocabulary = defaultdict(int)
-        for sentence in sentences:
-            for word in sentence:
-                vocabulary[word] += 1
-        return dict(
-            [(word, count) for word, count in vocabulary.iteritems() if count > threshold]
-        )
-        
-    @staticmethod 
-    def get_articles(names):
-        articles = []
-        articles_to_tokenize = []
-        articles_to_tokenize_indexes = []
-        for i, name in enumerate(names):
-            name = name.replace('/', '_')
-            try:
-                articles.append(Pickler.load(articles_cache_path % name))
-            except IOError:
-                try:
-                    articles_to_tokenize.append(get_article(name))
-                    articles_to_tokenize_indexes.append(i)
-                except ArticleNotFoundError:
-                    pass
-                articles.append(None)
-        tokenized_articles = lt.tokenize(articles_to_tokenize)
-        for i, article in izip(articles_to_tokenize_indexes, tokenized_articles):
-            name = names[i].replace('/', '_')
-            articles[i] = article
-            Pickler.store(article, articles_cache_path % name)
-        return articles
-      
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate'''
-        subjects, objects = zip(*list(names))
-        subject_articles = SentenceClassifier.get_articles(subjects)
         positive, negative = [], []
-        for subject, object, article in izip(subjects, objects, subject_articles):
+        for subject, object in names:
             if is_numeric(object):
                 object = str(int(round(float(object))))
             if object == 0:
                 continue
-            if article:
-                pos = []
-                for sentence in article:
-                    original_sentence = sentence[:]            
-                    if object in sentence:
-                        sentence = lt.extract_vector_of_words(sentence)
-                        pos.append((sentence, original_sentence, object))
-                    else:
-                        negative.append(sentence)                        
-                #if there is exactly one sentence referring to the searched value, simply add it to positive examples
-                #if more select only sentences containing at least part of the predicate
-                if len(pos) > 1:
-                    pos = filter(lambda (s, os, v): any(word in s for word in self.predicate_words), pos)
-                positive += pos
+            try:
+                article = get_article(subject)
+            except:
+                continue
+            pos = []
+            for sentence in article:
+                lemmas = [word.lemma for word in sentence]
+                if object in lemmas:
+                    pos.append((sentence, object))
+                else:
+                    negative.append(sentence)
+            #if there is exactly one sentence referring to the searched value, simply add it to positive examples
+            #if more select only sentences containing at least part of the predicate
+            if len(pos) > 1:
+                pos = filter(lambda (s, _): any(word in [w.lemma for w in s] for word in self.predicate_words), pos)
+            positive += pos
         return positive, negative
-        
-    def convert_to_vector_space(self, sentences):
-        cv = CountVectorizer(analyzer=lambda x: x, vocabulary=self.vocabulary)
-        vectors = cv.transform(sentences) if sentences else []
-        return vectors, sentences
         
     def train(self):
         names = select_all({'p': self.predicate})[: training_limit]
         if evaluation_mode:
+            #make sure that entities that will be used in evaluation, are not used in training
             from evaluator import get_test_data
             names = filter(lambda (entity, _): entity not in get_test_data(self.predicate)[0], names)
+        #prepare articles about subjects
+        prepare_articles(zip(*names)[0])
         positive, negative = self.collect_sentences(names)
-        self.extractor_training_data = map(lambda (s, os, v): (os, v), positive)
-        positive = map(lambda (s, os, v): s, positive)
+        self.extractor_training_data = positive[:]
+        positive = map(lambda (s, v): s, positive)
         #decreases number of negative examples to the number of positive examples to avoid unbalanced data
         shuffle(negative)
         negative = negative[: len(positive)]
-        negative = map(lambda s: lt.extract_vector_of_words(s), negative)
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
         #vocabulary is collected only from positive sentences
-        self.vocabulary = SentenceClassifier.collect_words(positive)
-        vectors, _ = self.convert_to_vector_space(sentences)
-        self.classifier = SVC(kernel='linear')
-        self.classifier.fit(vectors, classes)
+        self.classifier = Pipeline([
+            ('v', CountVectorizer(analyzer=lambda x: x)),
+            ('t', TfidfTransformer()),
+            ('c', SVC(kernel='linear')),
+        ])
+        lemmas_list = [[word.lemma for word in sentence] for sentence in sentences]
+        self.classifier.fit(lemmas_list, classes)
         self.entities = set(
             e for e, v in names
         )
@@ -135,18 +102,20 @@ class SentenceClassifier:
         return map(int, list(self.classifier.predict(vectors)))
         
     def extract_sentences(self, entities):
-        articles = SentenceClassifier.get_articles(entities)
+        articles = prepare_articles(entities)
         ret_entities, ret_sentences = [], [] 
-        for entity, article in izip(entities, articles):
-            if not article:
+        for entity in entities:
+            try:
+                article = get_article(entity)
+            except:
                 continue
-            sentences = map(lambda s: lt.extract_vector_of_words(s), article)
-            vectors, _ = self.convert_to_vector_space(sentences)
-            classes = self.predict(vectors)
+            lemmas_list = [[word.lemma for word in sentence] for sentence in article]
+            segments_list = [[word.segment for word in sentence] for sentence in article]
+            classes = self.predict(lemmas_list)
             if verbose:
                 print entity
                 if classes.count(1) >= 1:
-                    print ' *** ' + ' '.join(article[classes.index(1)])
+                    print ' *** ' + ' '.join(segments_list[classes.index(1)])
                 print '\n'.join(map(lambda s: ' '.join(s), article))
                 print
             if classes.count(1) >= 1:

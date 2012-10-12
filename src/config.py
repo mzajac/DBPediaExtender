@@ -1,25 +1,13 @@
 #language code
-lang = 'pl'#'en'
+lang = 'pl'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
 verbose = True
 evaluation_mode = False
 #limits number of candidates for learning
-candidates_limit = 10
+candidates_limit = 100
 #limits number of triples used in training and evaluation
-training_limit = 100
-
-#English
-#predicates = [
-#    'populationTotal',
-#    'capital',
-#    'source',
-#    'discharge',
-#    'areaTotal',
-#    'mountainRange',
-#    'elevation',
-#    'riverMouth',
-#][6:7]
+training_limit = 10000
 
 #Polish
 predicates = [
@@ -49,7 +37,4 @@ tests_path = main_path + 'tests/%s/' % lang
 #Software paths
 java_path = '/usr/lib/jvm/java-6-sun-1.6.0.26/bin/java'
 mallet_path = ext_path + 'mallet-0.4/bin/'
-
-#English
-#stanford_path = ext_path + 'stanford-parser'
 
