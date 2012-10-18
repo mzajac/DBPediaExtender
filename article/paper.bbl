@@ -1,0 +1,29 @@
+\begin{thebibliography}{}
+
+\bibitem[\protect\astroncite{Auer and Lehmann}{2007}]{al2007}
+Auer, S. and Lehmann, J. (2007).
+\newblock {What have Innsbruck and Leipzig in common? Extracting semantics from
+  wiki content}.
+\newblock In {\em {Proceedings of the 4th European conference on The Semantic
+  Web: Research and Applications}}, ESWC '07, pages 503--517.
+
+\bibitem[\protect\astroncite{Lange et~al.}{2010}]{lbn2010}
+Lange, D., Böhm, C., and Naumann, F. (2010).
+\newblock {Extracting structured information from Wikipedia articles to
+  populate infoboxes}.
+\newblock In {\em {Proceedings of the 19th ACM international conference on
+  Information and knowledge management}}, CIKM '10, pages 1661--1664.
+
+\bibitem[\protect\astroncite{Wu and Weld}{2007}]{ww2007}
+Wu, F. and Weld, D.~S. (2007).
+\newblock {Autonomously semantifying Wikipedia}.
+\newblock In {\em {Proceedings of the sixteenth ACM conference on Conference on
+  information and knowledge management}}, CIKM '07, pages 41--50.
+
+\bibitem[\protect\astroncite{Wu and Weld}{2010}]{ww2010}
+Wu, F. and Weld, D.~S. (2010).
+\newblock {Open information extraction using Wikipedia}.
+\newblock In {\em Proceedings of the 48th Annual Meeting of the Association for
+  Computational Linguistics}, ACL '10, pages 118--127.
+
+\end{thebibliography}

@@ -137,7 +137,6 @@ class SentenceClassifier:
                     ret_sentences.append(sentence)
             if verbose:
                 print
-        sys.exit()
         return ret_entities, ret_sentences
         
     def get_lemmas(self, sentence):
