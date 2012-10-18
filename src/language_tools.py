@@ -5,11 +5,11 @@ import glob
 from subprocess import Popen, PIPE
 from os.path import join
 from string import digits, punctuation
-from locale import atof
+from locale import atof, setlocale, LC_NUMERIC
 import lxml.etree as etree
 from collections import namedtuple
 
-from config import lang, entities_path, raw_articles_path
+from config import lang, numeric_predicates, entities_path, raw_articles_path
 from construct_synonym_set import get_synonyms
 from pickler import Pickler
 
@@ -31,6 +31,8 @@ class LanguageToolsFactory:
     @staticmethod
     def get_language_tools():
         if lang == 'pl':
+            #set ',;' as decimal character
+            setlocale(LC_NUMERIC, '')
             return PolishTools()
         raise NotImplementedError()
         
@@ -72,8 +74,6 @@ class LanguageTools:
 class PolishTools(LanguageTools):
     def __init__(self):
         LanguageTools.__init__(self)
-        from polish_stop_words import stop_words
-        self.stopwords = set(stop_words)
 
     def parse_disamb_file(self, f):
         article = []
@@ -94,7 +94,8 @@ class PolishTools(LanguageTools):
         return article
         
     def join_numerals(self, article):
-        for sentence in article:
+        for j, sentence in enumerate(article):
+            #join numerals ('3' ',' '5' becomes '3,5') and '100' '000' becomes '100000'
             i = 0
             while i < len(sentence) - 2:
                 if is_numeric(sentence[i].lemma) and sentence[i+1].lemma in '.,' and is_numeric(sentence[i+2].lemma):
@@ -105,10 +106,40 @@ class PolishTools(LanguageTools):
                     sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
                     sentence = sentence[: i+1] + sentence[i+3 :]
                 i += 1
+            i = 0
+            while i < len(sentence) - 1:
+                if is_numeric(sentence[i].lemma) and is_numeric(sentence[i+1].lemma):
+                    new_lemma = sentence[i].lemma + sentence[i+1].lemma
+                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
+                    sentence = sentence[: i+1] + sentence[i+2 :]
+                i += 1
+            #replace occurrences of 'tysiąc' and 'milion' with their numerical values
+            #('3,5' 'tys' becomes '3500')
+            thousand = ['tysiąc', 'tys']
+            million = ['mln', 'milion']
+            i = 0
+            while i < len(sentence) - 1:
+                if is_numeric(sentence[i].lemma) and sentence[i+1].lemma in thousand + million:
+                    product = 10**3 if sentence[i+1].lemma in thousand else 10**6
+                    new_lemma = str(int(round(atof(sentence[i].lemma) * product)))
+                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
+                    if i + 2 < len(sentence) and sentence[i+1].lemma == 'tys' and sentence[i+2] == '.':
+                        sentence = sentence[: i+1] + sentence[i+3 :]
+                    else:
+                        sentence = sentence[: i+1] + sentence[i+2 :]
+                i += 1
+            article[j] = sentence
         return article
         
     def prepare_article(self, article):
         return self.join_entities(self.join_numerals(article))
+        
+    def prepare_value(self, value, predicate):
+        if predicate in numeric_predicates:
+            product = 1000 if 'tys' in value else (10**6 if 'mln' in value else 1)
+            f = atof(filter(lambda c: c.isdigit() or c == ',', value))
+            return str(int(round(product * f)))
+        return value
 
     def run_tagger(self):
         '''runs pantera-tagger on all .txt files in raw_articles_path directory and then parses the results'''

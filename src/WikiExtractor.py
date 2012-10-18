@@ -73,7 +73,7 @@ class WikiDocument:
 def get_wiki_document_url(wiki_document_title, prefix):
     quoted_title = urllib.quote(wiki_document_title.replace(' ', '_').encode('utf-8'))
     quoted_title = quoted_title.replace('%28', '(').replace('%29', ')')
-    return prefix + quoted_title[0].upper() + quoted_title[1:]
+    return prefix + (quoted_title[0].upper() if quoted_title else '') + quoted_title[1:]
 
 #------------------------------------------------------------------------------
 

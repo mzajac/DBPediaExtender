@@ -5,8 +5,8 @@ data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' 
 verbose = True
 evaluation_mode = False
 #limits number of candidates for learning
-candidates_limit = 100
-#limits number of triples used in training and evaluation
+candidates_limit = 1000
+#limits number of triples used in training
 training_limit = 10000
 
 #Polish
@@ -14,6 +14,8 @@ predicates = [
     'populacja',
     'stolica'
 ][0:1]
+
+numeric_predicates = set([predicates[0]])
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 

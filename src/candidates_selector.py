@@ -7,7 +7,7 @@ from pickler import Pickler
 class CandidatesSelector:
     #types that are too wide, cover too many entities and should never be returned
     wide_types = [
-        'http://dbpedia.org/ontology/PopulatedPlace',
+        #'http://dbpedia.org/ontology/PopulatedPlace',
         'http://schema.org/Place',
         'http://www.w3.org/2002/07/owl#Thing',
         'http://dbpedia.org/ontology/Place',

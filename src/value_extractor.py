@@ -92,12 +92,11 @@ class ValueExtractor:
     def extract_value(self, sentence):
         tagged_sentence = self.model.tag(sentence)
         values = [
-            segment
-            for segment, tag in tagged_sentence
+            word.segment
+            for word, tag in tagged_sentence
             if tag == '1'
         ]
         if len(values) >= 1:
-            #if value is numeric round to integer
             if is_numeric(values[0]):
                 return str(int(round(float(values[0]))))
             return values[0]

@@ -68,7 +68,7 @@ def select_types(predicate):
     query = '''SELECT ?s, ?type FROM <%s> WHERE {
           ?s <%s> ?o.
           ?s rdf:type ?type.
-    }''' % (data_source, full_type_name(predicate))
+    }''' % (data_source, full_predicate_name(predicate))
     data = get_data(query)['results']['bindings']
     types_dict = defaultdict(list)
     for line in data:
