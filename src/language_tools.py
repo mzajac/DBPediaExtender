@@ -31,7 +31,7 @@ class LanguageToolsFactory:
     @staticmethod
     def get_language_tools():
         if lang == 'pl':
-            #set ',;' as decimal character
+            #set ',' as decimal character
             setlocale(LC_NUMERIC, '')
             return PolishTools()
         raise NotImplementedError()
@@ -112,9 +112,10 @@ class PolishTools(LanguageTools):
                     new_lemma = sentence[i].lemma + sentence[i+1].lemma
                     sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
                     sentence = sentence[: i+1] + sentence[i+2 :]
-                i += 1
+                else:
+                    i += 1
             #replace occurrences of 'tysiąc' and 'milion' with their numerical values
-            #('3,5' 'tys' becomes '3500')
+            #e.g. ('3,5' 'tys' becomes '3500')
             thousand = ['tysiąc', 'tys']
             million = ['mln', 'milion']
             i = 0
@@ -123,7 +124,7 @@ class PolishTools(LanguageTools):
                     product = 10**3 if sentence[i+1].lemma in thousand else 10**6
                     new_lemma = str(int(round(atof(sentence[i].lemma) * product)))
                     sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
-                    if i + 2 < len(sentence) and sentence[i+1].lemma == 'tys' and sentence[i+2] == '.':
+                    if i < len(sentence) - 2 and sentence[i+1].lemma == 'tys' and sentence[i+2].lemma == '.':
                         sentence = sentence[: i+1] + sentence[i+3 :]
                     else:
                         sentence = sentence[: i+1] + sentence[i+2 :]
@@ -137,8 +138,20 @@ class PolishTools(LanguageTools):
     def prepare_value(self, value, predicate):
         if predicate in numeric_predicates:
             product = 1000 if 'tys' in value else (10**6 if 'mln' in value else 1)
-            f = atof(filter(lambda c: c.isdigit() or c == ',', value))
-            return str(int(round(product * f)))
+            #Population value may look '99 2001 Census'. We would like to strip the information about census.
+            value = re.sub('\d{4} Census', '', value)
+            #Population sometimes has year of census in parentheses - it should be stripped.
+            value = value.split('(')[0]
+            try:
+                f = atof(filter(lambda c: c.isdigit() or c == ',', value))
+                return str(int(round(product * f)))
+            except ValueError:
+                pass
+        else:
+            #in Polish DBPedia a picture is often a part of a value 
+            #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
+            value = re.sub('\d px', '', value)
+            value = filter(lambda c: not c.isdigit(), value)
         return value
 
     def run_tagger(self):
@@ -153,5 +166,4 @@ class PolishTools(LanguageTools):
             i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
             articles[i] = self.prepare_article(self.parse_disamb_file(f))
         return articles   
-
 

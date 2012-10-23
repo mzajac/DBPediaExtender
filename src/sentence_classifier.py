@@ -33,28 +33,27 @@ def split_camelcase(s):
     ret.append(''.join(word))
     return ret
     
-def get_sentence_classifier(predicate):
-    try:
-        return Pickler.load(models_cache_path % ('model-%s.pkl' % predicate))
-    except IOError:
-        return SentenceClassifier(predicate)
+def get_sentence_classifier(predicate, confidence_level=None):
+    if confidence_level:
+        return SentenceClassifier(predicate, confidence_level)
+    return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate=None):
+    def __init__(self, predicate=None, confidence_level=.5):
         if predicate is not None:
             self.predicate = predicate
             self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
+            self.confidence_level = confidence_level
             self.train()
-#            Pickler.store(self, models_cache_path % ('model-%s.pkl' % predicate))
 
     @staticmethod
-    def collect_words(sentences, threshold=5):
+    def collect_words(sentences, threshold=10):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
             for word in sentence:
                 vocabulary[word] += 1
-        return [word for word, count in vocabulary.iteritems() if count > threshold]
+        return [word for word, count in vocabulary.iteritems() if count > threshold and word not in stop_words]
         
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate. Both types of sentences are returned, positive sentences contain also the value.'''
@@ -80,7 +79,9 @@ class SentenceClassifier:
         return positive, negative
         
     def train(self):
-        names = select_all({'p': self.predicate})[: training_limit]
+        names = select_all({'p': self.predicate})
+#        shuffle(names)
+        names = names[: training_limit]
         if evaluation_mode:
             #make sure that entities that will be used in evaluation, are not used in training
             from evaluator import get_test_data
@@ -107,7 +108,7 @@ class SentenceClassifier:
             print
         self.classifier = Pipeline([
             ('v', TfidfVectorizer(analyzer=lambda x: x, vocabulary=vocabulary)),
-            ('c', SVC(kernel='rbf')),
+            ('c', SVC(kernel='linear', probability=True)),
         ])
         self.classifier.fit(map(self.get_lemmas, sentences), classes)
         self.entities = set(
@@ -126,15 +127,14 @@ class SentenceClassifier:
                 continue
             if verbose:
                 print entity
-            classes = self.classifier.predict(map(self.get_lemmas, article))
-            for sentence, cls in izip(article, classes):
-                if verbose:
-                    if cls:
-                        print ' *** ',
-                        print ' '.join([w.segment for w in sentence]), ' | ', ' '.join([w.lemma for w in sentence])
-                if cls:
+            probabilities = [prob[1] for prob in self.classifier.predict_proba(map(self.get_lemmas, article))]
+            for sentence, p in izip(article, probabilities):
+                if p > self.confidence_level:
                     ret_entities.append(entity)
                     ret_sentences.append(sentence)
+                    if verbose:
+                        print ' *** ',
+                        print p, ' '.join([w.segment for w in sentence]), ' | ', ' '.join([w.lemma for w in sentence])
             if verbose:
                 print
         return ret_entities, ret_sentences

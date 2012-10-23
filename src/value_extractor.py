@@ -16,10 +16,7 @@ class ValueExtractor:
         self.model_filename = models_cache_path % ('model-%s.crf' % predicate)
         nltk.internals.config_java(java_path)
         nltk.classify.mallet.config_mallet(mallet_path)
-        try:
-            self.model = MalletCRF(self.model_filename, self.features_collector)            
-        except IOError:
-            self.train()
+        self.train()
         
     @staticmethod
     def convert_training_data(data):

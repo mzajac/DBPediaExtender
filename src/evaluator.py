@@ -4,6 +4,7 @@ from __future__ import division
 import sys
 from itertools import izip
 from os.path import join
+import pylab as pl
 
 from config import tests_path, verbose
 from sentence_classifier import get_sentence_classifier
@@ -24,12 +25,12 @@ class Stats:
         self.recall = self.tp / max(self.tp + self.fn, 1)
         self.f_measure = 2 * self.precision * self.recall / (self.precision + self.recall) if self.precision != 0 else 0
         
-        
 class Evaluator:
     @classmethod
     def evaluate(cls, true_values, entities, values):
         tp, fp, fn = cls.classify_by_error_type(true_values, entities, values)
-        print Stats(len(tp), len(fp), len(fn))
+        s = Stats(len(tp), len(fp), len(fn))
+        print s
         if verbose:
             print 'True positives:'
             print tp
@@ -38,6 +39,7 @@ class Evaluator:
             print 'False negatives:'
             print fn
             print
+        return s
     
     @classmethod
     def classify_by_error_type(cls, true_values, entities, values):
@@ -81,9 +83,9 @@ def get_test_data(predicate):
             true_values[value[0]] = value[1:]
     return entities, true_values
       
-def run_evaluation(predicate):
+def run_evaluation(predicate, confidence_level=None):
     entities, true_values = get_test_data(predicate)
-    sc = get_sentence_classifier(predicate)
+    sc = get_sentence_classifier(predicate, confidence_level)
     #filter out entities used during training
     entities = filter(lambda e: e not in sc.entities, entities)
     print 'Model trained on %d articles.' % len(sc.entities)
@@ -95,10 +97,12 @@ def run_evaluation(predicate):
         ve.extract_value(sentence)
         for entity, sentence in izip(entities, sentences)
     ]
-    print values
-    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, sentences)
+    list_of_lemmas = [
+        [word.lemma for word in sentence] for sentence in sentences
+    ]
+    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, list_of_lemmas)
     print 'Sentence classifier:'
-    SentenceClassifierEvaluator.evaluate(true_values, entities, sentences)
+    SentenceClassifierEvaluator.evaluate(true_values, entities, list_of_lemmas)
     true_values_without_entities_excluded = {}
     for entity, value in true_values.iteritems():
         if entity not in false_negatives:
@@ -106,9 +110,28 @@ def run_evaluation(predicate):
     print 'Value extractor:'
     ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
     print 'Overall:'
-    ValueExtractorEvaluator.evaluate(true_values, entities, values)
+    overall_stats = ValueExtractorEvaluator.evaluate(true_values, entities, values)
     if verbose:
         for e, v in izip(entities, values):
             if v is not None:
                 print e, v
+    return overall_stats
+        
+def run_multiple_evaluations(predicate):
+    precision = []
+    recall = []
+    for confidence_level in [.5, .6, .7, .8, .9]:
+        stats = run_evaluation(predicate, confidence_level)
+        precision.append(stats.precision)
+        recall.append(stats.recall)
+        
+    pl.clf()
+    pl.plot(recall, precision, label='Precision-Recall curve')
+    pl.xlabel('Recall')
+    pl.ylabel('Precision')
+    pl.ylim([0.0, 1.05])
+    pl.xlim([0.0, 1.0])
+    pl.title('Precision-Recall curve')
+    pl.legend(loc='lower left')
+    pl.show()    
     

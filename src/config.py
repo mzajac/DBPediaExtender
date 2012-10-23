@@ -3,7 +3,7 @@ lang = 'pl'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
 verbose = True
-evaluation_mode = False
+evaluation_mode = True
 #limits number of candidates for learning
 candidates_limit = 1000
 #limits number of triples used in training

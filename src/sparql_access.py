@@ -49,7 +49,7 @@ def select_all(d):
             dd[c] = '?%c' % c
         else:
             dd[c] = '<' + d[c] + '>' if c != 'p' else '<' + full_predicate_name(d[c]) + '>'
-    query = 'SELECT * FROM <%s> WHERE {%s %s %s}' % (data_source, dd['s'], dd['p'], dd['o'])
+    query = 'SELECT * FROM <%s> WHERE {%s %s %s} ORDER BY ?s' % (data_source, dd['s'], dd['p'], dd['o'])
     data = get_data(query)['results']['bindings']
     ret = []
     for line in data:
