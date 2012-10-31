@@ -86,13 +86,11 @@ def get_test_data(predicate):
 def run_evaluation(predicate, confidence_level=None):
     entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate, confidence_level)
-    #filter out entities used during training
-    entities = filter(lambda e: e not in sc.entities, entities)
     print 'Model trained on %d articles.' % len(sc.entities)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
     print '%d entities were considered.' % len(entities)
     entities, sentences = sc.extract_sentences(entities)
-    ve = ValueExtractor(predicate, sc.extractor_training_data)
+    ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
     values = [
         ve.extract_value(sentence)
         for entity, sentence in izip(entities, sentences)

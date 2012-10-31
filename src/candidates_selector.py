@@ -7,7 +7,6 @@ from pickler import Pickler
 class CandidatesSelector:
     #types that are too wide, cover too many entities and should never be returned
     wide_types = [
-        #'http://dbpedia.org/ontology/PopulatedPlace',
         'http://schema.org/Place',
         'http://www.w3.org/2002/07/owl#Thing',
         'http://dbpedia.org/ontology/Place',
@@ -16,9 +15,9 @@ class CandidatesSelector:
     ]
 
     @staticmethod
-    def get_predominant_types(predicate):
+    def get_predominant_types(predicate, subject=True):
         type_preciseness = .9
-        types_list = select_types(predicate)
+        types_list = select_types(predicate, subject)
         types_count = defaultdict(int)
         for types in types_list:
             for type in types:

@@ -6,11 +6,11 @@ from itertools import izip
 from collections import defaultdict
 from random import shuffle
 from pprint import pprint
+from string import punctuation
 
 from sklearn.svm import SVC
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer, TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report
 
 from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode
 from sparql_access import select_all
@@ -39,7 +39,7 @@ def get_sentence_classifier(predicate, confidence_level=None):
     return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate=None, confidence_level=.5):
+    def __init__(self, predicate=None, confidence_level=.9):
         if predicate is not None:
             self.predicate = predicate
             self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
@@ -47,27 +47,32 @@ class SentenceClassifier:
             self.train()
 
     @staticmethod
-    def collect_words(sentences, threshold=10):
+    def collect_words(sentences, threshold=5):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
             for word in sentence:
-                vocabulary[word] += 1
-        return [word for word, count in vocabulary.iteritems() if count > threshold and word not in stop_words]
+                lemma = word.lemma
+                if lemma not in stop_words and lemma not in punctuation:
+                    vocabulary[lemma] += 1
+        return [
+            word for word, count in vocabulary.iteritems() if count > threshold
+        ]
         
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate. Both types of sentences are returned, positive sentences contain also the value.'''
         positive, negative = [], []
         for subject, object in names:
-            object = lt.prepare_value(object, self.predicate)
             try:
                 article = get_article(subject)
             except:
                 continue
             pos = []
+            object = lt.prepare_value(object, self.predicate)
+            object_filtered = filter(lambda w: w and not w[0].islower(), object)
             for sentence in article:
                 lemmas = [word.lemma for word in sentence]
-                if object in lemmas:
+                if any(o in lemmas for o in object_filtered):
                     pos.append((sentence, object))
                 else:
                     negative.append(sentence)
@@ -82,6 +87,8 @@ class SentenceClassifier:
         names = select_all({'p': self.predicate})
 #        shuffle(names)
         names = names[: training_limit]
+        if verbose:
+            print '%d articles processed during training.' % len(names)
         if evaluation_mode:
             #make sure that entities that will be used in evaluation, are not used in training
             from evaluator import get_test_data
@@ -92,7 +99,7 @@ class SentenceClassifier:
         if verbose:
             print 'Sentences selected for training (%d total):' % len(positive)
             for s, v in positive:
-                print v, ' '.join([w.lemma for w in s])
+                print ' '.join(v), ' ', ' '.join([w.lemma for w in s])
             print
         self.extractor_training_data = positive[:]
         positive = map(lambda (s, v): s, positive)
@@ -101,19 +108,37 @@ class SentenceClassifier:
         negative = negative[: len(positive)]
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
-        vocabulary = SentenceClassifier.collect_words(map(self.get_lemmas, positive))
+        vocabulary = SentenceClassifier.collect_words(positive)
         if verbose:
             print 'Words considered as features:'
             print vocabulary
             print
         self.classifier = Pipeline([
-            ('v', TfidfVectorizer(analyzer=lambda x: x, vocabulary=vocabulary)),
+            ('v', CountVectorizer(analyzer=lambda x: x, vocabulary=vocabulary, binary=True)),
             ('c', SVC(kernel='linear', probability=True)),
-        ])
+        ]) 
         self.classifier.fit(map(self.get_lemmas, sentences), classes)
+        self.most_informative_features = self.get_most_informative_features()
         self.entities = set(
             e for e, v in names
-        )     
+        )
+        
+    def get_most_informative_features(self, n=10):
+        #works only with a linear kernel
+        try:
+            vectorizer = self.classifier.named_steps['v']
+            clf = self.classifier.named_steps['c']
+            feature_relevance = list(reversed(sorted(zip(clf.coef_[0].toarray()[0], vectorizer.get_feature_names()))))[:n]
+            #filter out nondiscriminating features
+            feature_relevance = filter(lambda (v, _): v >= 1, feature_relevance)
+            if verbose:
+                print 'Most informative features:'
+                for value, name in feature_relevance:
+                    print '%s %.2f' % (name, value)
+                print
+            return zip(*feature_relevance)[1]
+        except ValueError:
+            return []
         
     def extract_sentences(self, entities):
         articles = prepare_articles(entities)
@@ -125,16 +150,22 @@ class SentenceClassifier:
                 article = get_article(entity)
             except:
                 continue
+            if not article:
+                continue
             if verbose:
                 print entity
             probabilities = [prob[1] for prob in self.classifier.predict_proba(map(self.get_lemmas, article))]
-            for sentence, p in izip(article, probabilities):
-                if p > self.confidence_level:
-                    ret_entities.append(entity)
-                    ret_sentences.append(sentence)
-                    if verbose:
-                        print ' *** ',
-                        print p, ' '.join([w.segment for w in sentence]), ' | ', ' '.join([w.lemma for w in sentence])
+#            if verbose:
+#                for sentence, p in izip(article, probabilities):
+#                    print p, ' '.join([w.segment for w in sentence])
+            #for each article only the highest scoring sentence (if any) is returned
+            max_p = max(probabilities)
+            if max_p > self.confidence_level:
+                sentence = article[probabilities.index(max_p)]
+                ret_entities.append(entity)
+                ret_sentences.append(sentence)
+                if verbose:
+                    print '***', ' '.join([w.segment for w in sentence])
             if verbose:
                 print
         return ret_entities, ret_sentences

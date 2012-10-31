@@ -52,4 +52,4 @@ def prepare_articles(names):
         #save processed articles
         for i, article in articles.iteritems():
             Pickler.store(article, articles_cache_path % names[i])
-
+            

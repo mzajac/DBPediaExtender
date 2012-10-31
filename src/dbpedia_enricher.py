@@ -14,7 +14,7 @@ def learn_new_triples(predicate):
     sc = get_sentence_classifier(predicate)
     entities = CandidatesSelector.get_candidates(predicate)[: candidates_limit]
     entities, sentences = sc.extract_sentences(entities)
-    ve = ValueExtractor(predicate, sc.extractor_training_data)
+    ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
     values = [
         ve.extract_value(sentence)
         for entity, sentence in izip(entities, sentences)
@@ -26,8 +26,9 @@ def learn_new_triples(predicate):
 
 def main():    
     for p in predicates:
-        if evaluation_mode:
-#            run_evaluation(p)
+        if evaluation_mode == 1:
+            run_evaluation(p)
+        elif evaluation_mode == 2:
             run_multiple_evaluations(p)
         else:
             learn_new_triples(p)

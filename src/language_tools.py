@@ -41,32 +41,6 @@ class LanguageTools:
         self.entities = Pickler.load(entities_path)
         self.synonyms = get_synonyms()
         
-    def join_entities(self, article, max_entity_len=7):
-        def construct_entity(words):
-            ret = ''
-            for i, word in enumerate(words):
-                last_word = '' if i == 0 else words[i-1]
-                if word in ',)' or last_word == '(' or not ret:
-                    ret += word
-                else:
-                    ret += '_' + word
-            return ret
-        
-        for sentence in article:
-            length = 2
-            while length < max_entity_len:
-                for i in xrange(len(sentence) - length + 1):
-                    lemmas = [word.lemma for word in sentence[i : i+length]]
-                    possible_entity = construct_entity(lemmas).title()
-                    if self.is_entity(possible_entity):
-                        segments = [word.segment for word in sentence[i : i+length]]
-                        sentence[i] = Word(construct_entity(segments), possible_entity, sentence[i].tag)
-                        del sentence[i+1 : i+length]
-                        break
-                else:
-                    length += 1
-        return article
-        
     def is_entity(self, segment):
         return segment in self.entities
 
@@ -133,7 +107,7 @@ class PolishTools(LanguageTools):
         return article
         
     def prepare_article(self, article):
-        return self.join_entities(self.join_numerals(article))
+        return self.join_numerals(article)
         
     def prepare_value(self, value, predicate):
         if predicate in numeric_predicates:
@@ -144,7 +118,7 @@ class PolishTools(LanguageTools):
             value = value.split('(')[0]
             try:
                 f = atof(filter(lambda c: c.isdigit() or c == ',', value))
-                return str(int(round(product * f)))
+                return [str(int(round(product * f)))]
             except ValueError:
                 pass
         else:
@@ -152,7 +126,7 @@ class PolishTools(LanguageTools):
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
             value = re.sub('\d px', '', value)
             value = filter(lambda c: not c.isdigit(), value)
-        return value
+        return value.split(' ')
 
     def run_tagger(self):
         '''runs pantera-tagger on all .txt files in raw_articles_path directory and then parses the results'''

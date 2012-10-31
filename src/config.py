@@ -1,9 +1,10 @@
+#encoding: utf-8
 #language code
 lang = 'pl'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
 
 verbose = True
-evaluation_mode = True
+evaluation_mode = 1
 #limits number of candidates for learning
 candidates_limit = 1000
 #limits number of triples used in training
@@ -12,8 +13,12 @@ training_limit = 10000
 #Polish
 predicates = [
     'populacja',
-    'stolica'
-][0:1]
+    'stolica',
+    'uchodziDo',
+    'źródłoGdzie',
+    'uchodziGdzie',
+][1:2]
+
 
 numeric_predicates = set([predicates[0]])
 

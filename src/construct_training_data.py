@@ -12,10 +12,11 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = 'stolica'
-    test_data_limit = 1000
+    predicate = 'uchodziDo'
+    test_data_limit = 500
     entities_f = open(tests_path + '%s/entities' % predicate, 'w')
     values_f = open(tests_path + '%s/values' % predicate, 'w')
+    articles_f = open(tests_path + '%s/articles' % predicate, 'w')
     names = select_all({'p': predicate})
     shuffle(names)
     names = names[: test_data_limit]
@@ -29,11 +30,11 @@ if __name__ == '__main__':
             article = get_article(subject)
         except:
             continue
-        print subject, lt.prepare_value(value[0], predicate)
+        print >>articles_f, subject, lt.prepare_value(value[0], predicate)
         for sentence in article:
             sentence = [word.segment for word in sentence]
-            print ' '.join(sentence)
-        print
+            print >>articles_f, ' '.join(sentence)
+        print >>articles_f
         print >>entities_f, subject
         print >>values_f, subject
 

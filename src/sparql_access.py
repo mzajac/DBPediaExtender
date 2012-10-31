@@ -64,11 +64,12 @@ def select_all(d):
         ret.append(tuple(t))
     return ret
     
-def select_types(predicate):
+def select_types(predicate, subject=True):
+    whose_type = '?s' if subject else '?o'
     query = '''SELECT ?s, ?type FROM <%s> WHERE {
           ?s <%s> ?o.
-          ?s rdf:type ?type.
-    }''' % (data_source, full_predicate_name(predicate))
+          %s rdf:type ?type.
+    }''' % (data_source, full_predicate_name(predicate), whose_type)
     data = get_data(query)['results']['bindings']
     types_dict = defaultdict(list)
     for line in data:
