@@ -50,16 +50,17 @@ import bz2
 import os.path
 from urllib2 import unquote
 
-#MZ
-from config import entities_path
-from pickler import Pickler
-entities = Pickler.load(entities_path)
-
 ### PARAMS ####################################################################
 
 prefix = 'http://it.wikipedia.org/wiki/'
 
 ### SUPPORT CLASSES ###########################################################
+
+
+link_dictionary = {}
+from config import entities_path
+from pickler import Pickler
+entities = Pickler.load(entities_path)
 
 class WikiDocument:
     def __init__(self):
@@ -333,6 +334,9 @@ class WikiExtractor:
         wiki_document.text = wiki_document.text.replace('[ ', '[').replace(' ]', ']')
         wiki_document.text = wiki_document.text.replace(u'« ', u'«').replace(u' »', u'»')
 
+        wiki_document.link_dictionary = link_dictionary
+        global link_dictionary
+        link_dictionary = {}
         return wiki_document
 
     def __compact(self, wiki_document):
@@ -421,9 +425,9 @@ class WikiExtractor:
     def __get_anchor_tag(self, document_title, link_text):
         if not link_text:
             return ''
-        link_name = unquote(get_wiki_document_url(document_title, '').replace('_', ' '))
-        if link_name in entities:
-            return link_name.decode('utf-8')
+        link_name = unquote(get_wiki_document_url(document_title, '').replace('_', ' ')).decode('utf-8')
+        if link_text != link_name and link_name in entities and link_text[:2] == link_name[:2] and abs(len(link_text) - len(link_name)) < 3:
+            link_dictionary[link_text] = link_name
         return link_text
 
     def __handle_unicode(self, entity):
@@ -539,7 +543,6 @@ def extract_document(page):
             line = '==%s==' % line.strip('= ')
 
         wiki_document.text += '\n%s' % line
-
     return wiki_document
 
 ### USER INTERFACE ############################################################

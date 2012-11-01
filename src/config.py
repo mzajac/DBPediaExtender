@@ -8,7 +8,7 @@ evaluation_mode = 1
 #limits number of candidates for learning
 candidates_limit = 1000
 #limits number of triples used in training
-training_limit = 10000
+training_limit = 100#00
 
 #Polish
 predicates = [

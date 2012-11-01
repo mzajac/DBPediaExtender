@@ -12,10 +12,11 @@ def clean(text, we = WikiExtractor()):
     doc.text = we._WikiExtractor__clean(doc).text
     text = we._WikiExtractor__compact(doc).text
     text = text.encode('utf-8')
+    link_dictionary = doc.link_dictionary
     new = []
     for line in text:
         if line and line[0] not in ['=', ';', '*']:
             line = line.replace('()', '')
             new.append(line)
-    return unquote(''.join(new))
+    return unquote(''.join(new)).decode('utf-8'), link_dictionary
    

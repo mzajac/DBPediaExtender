@@ -106,7 +106,7 @@ class PolishTools(LanguageTools):
             article[j] = sentence
         return article
         
-    def prepare_article(self, article):
+    def prepare_article(self, article, link_dictionary):
         return self.join_numerals(article)
         
     def prepare_value(self, value, predicate):
@@ -124,11 +124,11 @@ class PolishTools(LanguageTools):
         else:
             #in Polish DBPedia a picture is often a part of a value 
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
-            value = re.sub('\d px', '', value)
+            value = re.sub('\dpx', '', value)
             value = filter(lambda c: not c.isdigit(), value)
         return value.split(' ')
 
-    def run_tagger(self):
+    def run_tagger(self, link_dictionaries):
         '''runs pantera-tagger on all .txt files in raw_articles_path directory and then parses the results'''
         command = 'pantera --tagset nkjp -o xces %s/*.txt' % raw_articles_path
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
@@ -138,6 +138,7 @@ class PolishTools(LanguageTools):
         articles = {}
         for f in glob.glob('%s/*.disamb' % raw_articles_path):
             i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
-            articles[i] = self.prepare_article(self.parse_disamb_file(f))
+            articles[i] = self.prepare_article(self.parse_disamb_file(f), link_dictionaries[i])
+        sys.exit()
         return articles   
 
