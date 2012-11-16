@@ -22,7 +22,7 @@ predicates = [
     'źródłoGdzie',
     'uchodziGdzie',
     'kontynent',
-][1:2]
+][0:1]
 predicates = map(quote_plus, predicates)
 numeric_predicates = set(['populacja'])
 

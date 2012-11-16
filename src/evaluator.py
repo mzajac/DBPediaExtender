@@ -93,14 +93,11 @@ def run_evaluation(predicate, confidence_level=None):
     print '%d entities were considered.' % len(entities)
     entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
-    values = [
-        ve.extract_value(sentence)
-        for entity, sentence in izip(entities, sentences)
-    ]
-    list_of_lemmas = [
-        [word.lemma for word in sentence] for sentence in sentences
-    ]
-    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, list_of_lemmas)
+    values = ve.extract_values(sentences)
+#    list_of_lemmas = [
+#        [word.lemma for word in sentence] for sentence in sentences
+#    ]
+#    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, list_of_lemmas)
 #    print 'Sentence classifier:'
 #    SentenceClassifierEvaluator.evaluate(true_values, entities, list_of_lemmas)
 #    true_values_without_entities_excluded = {}
@@ -111,10 +108,10 @@ def run_evaluation(predicate, confidence_level=None):
 #    ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
     print 'Overall:'
     overall_stats = ValueExtractorEvaluator.evaluate(true_values, entities, values)
-    if verbose:
-        for e, v in izip(entities, values):
-            if v is not None:
-                print e, v
+#    if verbose:
+#        for e, v in izip(entities, values):
+#            if v is not None:
+#                print e, v
     return overall_stats
         
 def run_multiple_evaluations(predicate):

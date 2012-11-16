@@ -15,10 +15,7 @@ def learn_new_triples(predicate):
     entities = CandidatesSelector.get_candidates(predicate)[: candidates_limit]
     entities, sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
-    values = [
-        ve.extract_value(sentence)
-        for entity, sentence in izip(entities, sentences)
-    ]
+    values = ve.extract_values(sentences)
     out = open(results_path + 'triples-%s' % predicate, 'w')
     for e, v in izip(entities, values):
         if v:
