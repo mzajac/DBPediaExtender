@@ -39,24 +39,21 @@ def get_sentence_classifier(predicate, confidence_level=None):
     return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate=None, confidence_level=.9):
+    def __init__(self, predicate=None, confidence_level=.6):
         if predicate is not None:
             self.predicate = predicate
             self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
             self.confidence_level = confidence_level
             self.train()
 
-    @staticmethod
-    def collect_words(sentences, threshold=5):
+    def collect_features(self, sentences, threshold=5):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
-            for word in sentence:
-                lemma = word.lemma
-                if lemma not in stop_words and lemma not in punctuation:
-                    vocabulary[lemma] += 1
+            for feature in self.get_features(sentence):
+                vocabulary[feature] += 1
         return [
-            word for word, count in vocabulary.iteritems() if count > threshold
+            feature for feature, count in vocabulary.iteritems() if count > threshold
         ]
         
     def collect_sentences(self, names):
@@ -108,7 +105,7 @@ class SentenceClassifier:
         negative = negative[: len(positive)]
         sentences = positive + negative
         classes = [True] * len(positive) + [False] * len(negative)
-        vocabulary = SentenceClassifier.collect_words(positive)
+        vocabulary = self.collect_features(positive)
         if verbose:
             print 'Words considered as features:'
             print vocabulary
@@ -117,7 +114,7 @@ class SentenceClassifier:
             ('v', CountVectorizer(analyzer=lambda x: x, vocabulary=vocabulary, binary=True)),
             ('c', SVC(kernel='linear', probability=True)),
         ]) 
-        self.classifier.fit(map(self.get_lemmas, sentences), classes)
+        self.classifier.fit(map(self.get_features, sentences), classes)
         self.most_informative_features = self.get_most_informative_features()
         self.entities = set(
             e for e, v in names
@@ -130,7 +127,7 @@ class SentenceClassifier:
             clf = self.classifier.named_steps['c']
             feature_relevance = list(reversed(sorted(zip(clf.coef_[0].toarray()[0], vectorizer.get_feature_names()))))[:n]
             #filter out nondiscriminating features
-            feature_relevance = filter(lambda (v, _): v >= 1, feature_relevance)
+            feature_relevance = filter(lambda (v, _): v >= 1.3, feature_relevance)
             if verbose:
                 print 'Most informative features:'
                 for value, name in feature_relevance:
@@ -154,10 +151,10 @@ class SentenceClassifier:
                 continue
             if verbose:
                 print entity
-            probabilities = [prob[1] for prob in self.classifier.predict_proba(map(self.get_lemmas, article))]
-#            if verbose:
-#                for sentence, p in izip(article, probabilities):
-#                    print p, ' '.join([w.segment for w in sentence])
+            probabilities = [prob[1] for prob in self.classifier.predict_proba(map(self.get_features, article))]
+            if verbose:
+                for sentence, p in izip(article, probabilities):
+                    print '%.2f' % p, ' '.join([w.segment for w in sentence])
             #for each article only the highest scoring sentence (if any) is returned
             max_p = max(probabilities)
             if max_p > self.confidence_level:
@@ -170,7 +167,11 @@ class SentenceClassifier:
                 print
         return ret_entities, ret_sentences
         
-    def get_lemmas(self, sentence):
+    def get_features(self, sentence):
         lemmas = [word.lemma for word in sentence]
-        return filter(lambda w: len(w) > 2 and w[0].islower() and not w.isdigit() and w not in stop_words, lemmas)
+        hypernyms = []
+        for lemma in lemmas:
+            hypernyms += lt.get_hypernyms(lemma)
+        lemmas += hypernyms
+        return filter(lambda w: w.decode('utf-8').isalpha() and w not in stop_words, lemmas)
        

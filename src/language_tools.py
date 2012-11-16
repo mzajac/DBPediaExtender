@@ -8,8 +8,9 @@ from string import digits, punctuation
 from locale import atof, setlocale, LC_NUMERIC
 import lxml.etree as etree
 from collections import namedtuple
+from nltk.corpus import wordnet as wn
 
-from config import lang, numeric_predicates, entities_path, raw_articles_path
+from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose
 from construct_synonym_set import get_synonyms
 from pickler import Pickler
 
@@ -106,8 +107,22 @@ class PolishTools(LanguageTools):
             article[j] = sentence
         return article
         
+    def correct_lemmas(self, article, link_dictionary):
+        '''Corrects lemmatization by using Wikipedia anchor links.'''
+        for i, sentence in enumerate(article):
+            for j, word in enumerate(sentence):
+                if word.segment in link_dictionary:
+                    lemma_suggested_by_link = link_dictionary[word.segment].encode('utf-8')
+                    if word.lemma[0].isupper() and word.lemma != lemma_suggested_by_link:
+#                        if verbose:
+#                            print 'Lemma correction changed "%s" to "%s".' % (word.lemma, lemma_suggested_by_link)
+                        article[i][j] = Word(word.segment, lemma_suggested_by_link, word.tag)
+        return article
+        
     def prepare_article(self, article, link_dictionary):
-        return self.join_numerals(article)
+        return self.join_numerals(
+            self.correct_lemmas(article, link_dictionary)
+        )
         
     def prepare_value(self, value, predicate):
         if predicate in numeric_predicates:
@@ -139,6 +154,11 @@ class PolishTools(LanguageTools):
         for f in glob.glob('%s/*.disamb' % raw_articles_path):
             i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
             articles[i] = self.prepare_article(self.parse_disamb_file(f), link_dictionaries[i])
-        sys.exit()
-        return articles   
+        return articles
+        
+    def run_spejd(self):
+        pass
+        
+    def get_hypernyms(self, word):
+        return []
 

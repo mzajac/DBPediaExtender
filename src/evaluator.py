@@ -31,13 +31,15 @@ class Evaluator:
         tp, fp, fn = cls.classify_by_error_type(true_values, entities, values)
         s = Stats(len(tp), len(fp), len(fn))
         print s
+        print
         if verbose:
-            print 'True positives:'
-            print tp
             print 'False positives:'
-            print fp
+            for e in fp:
+                print e,
+            print
             print 'False negatives:'
-            print fn
+            for e in fn:
+                print e,
             print
         return s
     
@@ -99,14 +101,14 @@ def run_evaluation(predicate, confidence_level=None):
         [word.lemma for word in sentence] for sentence in sentences
     ]
     _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, list_of_lemmas)
-    print 'Sentence classifier:'
-    SentenceClassifierEvaluator.evaluate(true_values, entities, list_of_lemmas)
-    true_values_without_entities_excluded = {}
-    for entity, value in true_values.iteritems():
-        if entity not in false_negatives:
-            true_values_without_entities_excluded[entity] = value
-    print 'Value extractor:'
-    ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
+#    print 'Sentence classifier:'
+#    SentenceClassifierEvaluator.evaluate(true_values, entities, list_of_lemmas)
+#    true_values_without_entities_excluded = {}
+#    for entity, value in true_values.iteritems():
+#        if entity not in false_negatives:
+#            true_values_without_entities_excluded[entity] = value
+#    print 'Value extractor:'
+#    ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
     print 'Overall:'
     overall_stats = ValueExtractorEvaluator.evaluate(true_values, entities, values)
     if verbose:

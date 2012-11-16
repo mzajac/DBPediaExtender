@@ -30,7 +30,6 @@ def get_article(name):
         
 def prepare_articles(names):
     '''saves tagged articles about given entities in a cache'''
-    raw_articles = []
     #save articles in temporary files
     found = False
     link_dictionaries = {}
@@ -42,7 +41,6 @@ def prepare_articles(names):
                 article, link_dictionary = get_raw_article(name)
                 link_dictionaries[i] = link_dictionary
             except ArticleNotFoundError:
-                print name
                 continue
             found = True
             out = copen(join(raw_articles_path, '%d.txt' % i), 'w', 'utf-8')

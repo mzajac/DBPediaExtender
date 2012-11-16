@@ -15,13 +15,12 @@ class ValueExtractor:
         self.predicate = predicate
         self.training_data = ValueExtractor.convert_training_data(training_data)
         #most_informative_features are global, because features_collector cannot take any parameters and must be static
-        global most_informative_features  
+        global most_informative_features
         most_informative_features = features
         self.predominant_types = map(
             lambda t: t.split('/')[-1], 
             CandidatesSelector.get_predominant_types(predicate, False)
         )
-        print self.predominant_types
         nltk.internals.config_java(java_path)
         nltk.classify.mallet.config_mallet(mallet_path)
         self.train()
@@ -63,18 +62,21 @@ class ValueExtractor:
             'lemma': lemma,
             'recent_year': recent_year(lemma),
             'other_year': other_year(lemma),
-            'alldigits': all(c.isdigit() for c in lemma),
-            'allalpha': all(c.isalpha() for c in lemma),
-            'allcapitals': all(c.isupper() for c in lemma),
-            'starts_with_capital': lemma[0].isupper(),
-            'segm_starts_with_capital': segment[0].isupper(),
+            'alldigits': lemma.isdigit(),
+            'allalpha': lemma.decode('utf-8').isalpha(),
+            'allcapitals': lemma.decode('utf-8').isupper(),
+            'starts_with_capital': lemma.decode('utf-8')[0].isupper(),
+            'segm_starts_with_capital': segment.decode('utf-8')[0].isupper(),
             'numeric': is_numeric(lemma)
         }
         #note if window before and after contains one of the words deemed significant by the sentence classifier
-        window_size = 7
+        window_size = 3
         for feature in most_informative_features:
             features['%s before' % feature] = feature in lemmas[max(0, i-window_size): i]
             features['%s after' % feature] = feature in lemmas[i+1: i+1+window_size]
+        window_size = 2
+        for j in xrange(max(0, i - window_size), min(i + window_size + 1, len(sentence))):
+            features['%d lemma' % j] = lemmas[j]
         return features
         
     def train(self):
@@ -82,6 +84,7 @@ class ValueExtractor:
 
     def extract_value(self, sentence):
         tagged_sentence = self.model.tag(sentence)
+        print tagged_sentence
         values = []
         value = []
         for word, tag in tagged_sentence + [('', '0')]:
@@ -111,6 +114,7 @@ class ValueExtractor:
                 print
             if values_identified_as_entities_of_right_type:
                 return values_identified_as_entities_of_right_type[0]
-#            if values_identified_as_entities:
-#                return values_identified_as_entities[0]
+            if values_identified_as_entities:
+                return values_identified_as_entities[0]
+            return values[0]
                    

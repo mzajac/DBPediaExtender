@@ -1,4 +1,6 @@
 #encoding: utf-8
+from urllib import quote_plus
+
 #language code
 lang = 'pl'
 data_source = "http://dbpedia.org" if lang == 'en' else 'http://%s.dbpedia.org' % lang
@@ -8,19 +10,21 @@ evaluation_mode = 1
 #limits number of candidates for learning
 candidates_limit = 1000
 #limits number of triples used in training
-training_limit = 100#00
+training_limit = 10000
 
-#Polish
+use_parser = False
+
+#predicates to learn
 predicates = [
     'populacja',
     'stolica',
     'uchodziDo',
     'źródłoGdzie',
     'uchodziGdzie',
+    'kontynent',
 ][1:2]
-
-
-numeric_predicates = set([predicates[0]])
+predicates = map(quote_plus, predicates)
+numeric_predicates = set(['populacja'])
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 
