@@ -12,7 +12,7 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 
-from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode
+from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode, numeric_predicates
 from sparql_access import select_all
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
@@ -39,7 +39,7 @@ def get_sentence_classifier(predicate, confidence_level=None):
     return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate=None, confidence_level=.6):
+    def __init__(self, predicate=None, confidence_level=.8):
         if predicate is not None:
             self.predicate = predicate
             self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
@@ -73,9 +73,7 @@ class SentenceClassifier:
                     pos.append((sentence, object))
                 else:
                     negative.append(sentence)
-            #if there is exactly one sentence referring to the searched value, simply add it to positive examples
-            #if more select only sentences containing at least part of the predicate
-            if len(pos) > 1:
+            if self.predicate == 'stolica':
                 pos = filter(lambda (s, _): any(word in [w.lemma for w in s] for word in self.predicate_words), pos)
             positive += pos
         return positive, negative
@@ -139,7 +137,8 @@ class SentenceClassifier:
         
     def extract_sentences(self, entities):
         articles = prepare_articles(entities)
-        ret_entities, ret_sentences = [], []
+#        ret_entities, ret_sentences = [], []
+        extracted_sentences = defaultdict(list)
         if verbose:
             print 'Classifying sentences:'
         for entity in entities:
@@ -152,26 +151,23 @@ class SentenceClassifier:
             if verbose:
                 print entity
             probabilities = [prob[1] for prob in self.classifier.predict_proba(map(self.get_features, article))]
-            if verbose:
-                for sentence, p in izip(article, probabilities):
-                    print '%.2f' % p, ' '.join([w.segment for w in sentence])
-            #for each article only the highest scoring sentence (if any) is returned
-            max_p = max(probabilities)
-            if max_p > self.confidence_level:
-                sentence = article[probabilities.index(max_p)]
-                ret_entities.append(entity)
-                ret_sentences.append(sentence)
-                if verbose:
-                    print '***', ' '.join([w.segment for w in sentence])
+            #for each article return all sentences with scores > confidence_level
+            for sentence, p in izip(article, probabilities):
+                if p > self.confidence_level:
+                    extracted_sentences[entity].append(sentence)
+                    if verbose:
+                        print '***', '%.2f' % p, ' '.join([w.segment for w in sentence])
+#                elif verbose:
+#                    print '%.2f' % p, ' '.join([w.segment for w in sentence])
             if verbose:
                 print
-        return ret_entities, ret_sentences
+        return extracted_sentences
         
     def get_features(self, sentence):
         lemmas = [word.lemma for word in sentence]
         hypernyms = []
-        for lemma in lemmas:
-            hypernyms += lt.get_hypernyms(lemma)
+        for word in sentence:
+            hypernyms += lt.get_hypernyms(word)
         lemmas += hypernyms
         return filter(lambda w: w.decode('utf-8').isalpha() and w not in stop_words, lemmas)
        

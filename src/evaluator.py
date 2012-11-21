@@ -27,26 +27,16 @@ class Stats:
         
 class Evaluator:
     @classmethod
-    def evaluate(cls, true_values, entities, values):
-        tp, fp, fn = cls.classify_by_error_type(true_values, entities, values)
+    def evaluate(cls, true_values, values):
+        tp, fp, fn = cls.classify_by_error_type(true_values, values)
         s = Stats(len(tp), len(fp), len(fn))
         print s
         print
-        if verbose:
-            print 'False positives:'
-            for e in fp:
-                print e,
-            print
-            print 'False negatives:'
-            for e in fn:
-                print e,
-            print
-        return s
+        return s, fp, fn
     
     @classmethod
-    def classify_by_error_type(cls, true_values, entities, values):
+    def classify_by_error_type(cls, true_values, suggested_values):
         tp, fp, fn = [], [], []
-        suggested_values = dict(zip(entities, values))
         for entity, suggested_value in suggested_values.iteritems():
             if not suggested_value:
                 continue
@@ -91,44 +81,23 @@ def run_evaluation(predicate, confidence_level=None):
     print 'Model trained on %d articles.' % len(sc.entities)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
     print '%d entities were considered.' % len(entities)
-    entities, sentences = sc.extract_sentences(entities)
+    extracted_sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
-    values = ve.extract_values(sentences)
-#    list_of_lemmas = [
-#        [word.lemma for word in sentence] for sentence in sentences
-#    ]
-#    _, _, false_negatives = SentenceClassifierEvaluator.classify_by_error_type(true_values, entities, list_of_lemmas)
-#    print 'Sentence classifier:'
-#    SentenceClassifierEvaluator.evaluate(true_values, entities, list_of_lemmas)
-#    true_values_without_entities_excluded = {}
-#    for entity, value in true_values.iteritems():
-#        if entity not in false_negatives:
-#            true_values_without_entities_excluded[entity] = value
-#    print 'Value extractor:'
-#    ValueExtractorEvaluator.evaluate(true_values_without_entities_excluded, entities, values)
-    print 'Overall:'
-    overall_stats = ValueExtractorEvaluator.evaluate(true_values, entities, values)
-#    if verbose:
-#        for e, v in izip(entities, values):
-#            if v is not None:
-#                print e, v
-    return overall_stats
-        
-def run_multiple_evaluations(predicate):
-    precision = []
-    recall = []
-    for confidence_level in [.5, .6, .7, .8, .9]:
-        stats = run_evaluation(predicate, confidence_level)
-        precision.append(stats.precision)
-        recall.append(stats.recall)
-        
-    pl.clf()
-    pl.plot(recall, precision, label='Precision-Recall curve')
-    pl.xlabel('Recall')
-    pl.ylabel('Precision')
-    pl.ylim([0.0, 1.05])
-    pl.xlim([0.0, 1.0])
-    pl.title('Precision-Recall curve')
-    pl.legend(loc='lower left')
-    pl.show()    
+    values = ve.extract_values(extracted_sentences)
+    print 'Results:'
+    stats, fp, fn = ValueExtractorEvaluator.evaluate(true_values, values)
+    table_format = '%30s %30s %20s %10s'
+    print 'Error table:'
+    print table_format % ('Subject:', 'Gold standard values:', 'Extracted value:', 'Error:')
+    for entity, true_value in true_values.iteritems():
+        if entity in fp and entity in fn:
+            err = 'FP/FN'
+        elif entity in fp:
+            err = 'FP'
+        elif entity in fn:
+            err = 'FN'
+        else:
+            err = ''
+        print table_format % (entity[:30], ', '.join(true_value), values[entity] if entity in values else '-', err)
+    return stats
     

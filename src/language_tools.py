@@ -159,6 +159,29 @@ class PolishTools(LanguageTools):
     def run_spejd(self):
         pass
         
+    def get_simple_tag(self, tag):
+        if tag.startswith('subst'):
+            return 'n'
+        elif tag.startswith('adj'):
+            return 'a'
+        elif tag.startswith('adv'):
+            return 'r'
+        return None
+        
     def get_hypernyms(self, word):
-        return []
+        def hypernyms(synsets, level=1):
+            if level == 0:
+                return []
+            ret = []
+            for synset in synsets:
+                hyper = synset.hypernyms()
+                ret += hyper + hypernyms(hyper, level - 1)
+            return ret
+    
+        simple_tag = self.get_simple_tag(word.tag)
+        if simple_tag:
+            synsets = wn.synsets(word.lemma, simple_tag)
+        else:
+            synsets = wn.synsets(word.lemma)
+        return map(lambda s: s.name, synsets)
 

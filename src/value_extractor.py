@@ -24,43 +24,33 @@ class ValueExtractor:
         self.features_tag_filename = 'features_tag'
         self.train(training_data)
         
-    def extract_features(self, sentence, i):
+    def extract_features(self, sentence, i, window_size=3):
         def recent_year(word):
             try:
                 return 1990 <= int(word) <= 2012
             except ValueError:
                 return False
-            
-        def other_year(word):
-            try:
-                return 1001 <= int(word) <= 1989
-            except ValueError:
-                return False
         
-        lemma = sentence[i].lemma
-        segment = sentence[i].segment
-        lemmas = [word.lemma for word in sentence]
-        features = {
-            'segment': segment,
-            'tag': sentence[i].tag,
-            'lemma': lemma,
-            'recent_year': str(int(recent_year(lemma))),
-            'other_year': str(int(other_year(lemma))),
-            'alldigits': str(int(lemma.isdigit())),
-            'allalpha': str(int(lemma.decode('utf-8').isalpha())),
-            'allcapitals': str(int(lemma.decode('utf-8').isupper())),
-            'starts_with_capital': str(int(lemma.decode('utf-8')[0].isupper())),
-            'segm_starts_with_capital': str(int(segment.decode('utf-8')[0].isupper())),
-            'numeric': str(int(is_numeric(lemma)))
-        }
-        #note if window before and after contains one of the words deemed significant by the sentence classifier
-        window_size = 3
-        for feature in self.most_informative_features:
-            features['%s_before' % feature] = str(int(feature in lemmas[max(0, i-window_size): i]))
-            features['%s_after' % feature] = str(int(feature in lemmas[i+1: i+1+window_size]))
-        window_size = 2
-        for j in xrange(max(0, i - window_size), min(i + window_size + 1, len(sentence))):
-            features['%d_lemma' % (j-i)] = lemmas[j]
+        features = {}
+        for j in xrange(-window_size, window_size + 1):
+            if 0 <= i + j < len(sentence):
+                word = sentence[i + j]
+                lemma = word.lemma
+                segment = word.segment
+                word_features = {
+                    'segment': segment,
+                    'tag': word.tag,
+#                    'hypernym': str(lt.get_hypernyms(word)),
+                    'lemma': lemma,
+                    'recent_year': str(int(recent_year(lemma))),
+                    'alldigits': str(int(lemma.isdigit())),
+                    'allalpha': str(int(lemma.decode('utf-8').isalpha())),
+                    'starts_with_capital': str(int(lemma.decode('utf-8')[0].isupper())),
+                    'segm_starts_with_capital': str(int(segment.decode('utf-8')[0].isupper())),
+                    'numeric': str(int(is_numeric(lemma)))
+                }
+                for name, feature in word_features.iteritems():
+                    features['%d%s' % (j, name)] = feature
         return features
         
     def save_features_to_file(self, filename, sentences, selected_values=None):
@@ -82,9 +72,35 @@ class ValueExtractor:
         command = 'crfsuite learn -m %s %s' % (models_cache_path % self.model_filename, models_cache_path % self.features_train_filename)
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         p.communicate()
+        if verbose:
+            self.print_most_informative_features()
+        
+    def print_most_informative_features(self, n=50):
+        command = 'crfsuite dump %s' % (models_cache_path % self.model_filename)
+        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+        out, _ = p.communicate()
+        out = out.split('\n')[:-3]
+        start = out.index('STATE_FEATURES = {')
+        feature_weights = []
+        for line in out[start+1 :]:
+            _, feature, __, cls, weight = filter(lambda _: _, line.split(' '))
+            cls = cls[0]
+            if cls == '1':
+                weight = float(weight)
+                feature_weights.append((weight, feature))
+        feature_weights.sort(key=lambda (w, _): -w)
+        feature_weights = feature_weights[:n]
+        print 'Value extractor - most informative features:'
+        for weight, feature in feature_weights:
+            print '%s %s' % (weight, feature)
+        print
 
-    def extract_values(self, sentences):
-        print sentences
+    def extract_values(self, extracted_sentences):
+        sentences = [
+            sentence
+            for entity, sentences in extracted_sentences.iteritems()
+            for sentence in sentences
+        ]
         self.save_features_to_file(self.features_tag_filename, sentences)
         command = 'crfsuite tag -i -m %s %s' % (models_cache_path % self.model_filename, models_cache_path % self.features_tag_filename)
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
@@ -97,24 +113,35 @@ class ValueExtractor:
                 tags = []
             else:
                 tags.append((line[0], float(line[2:])))
-        ret = []
-        for sentence, tags in izip(sentences, tags_list):
+        extracted_values = {}
+        i = 0
+        for entity, sentences in extracted_sentences.iteritems():
             values = []
-            value = []
-            for word, (tag, p) in zip(sentence, tags) + [('', ('0', 1))]:
-                #FIXME use probabilities
-                if tag == '1':
-                    value.append(word.lemma)
-                else:
-                    if value:
-                        values.append('_'.join(value))
+            for sentence in sentences:
+                tags = tags_list[i]
+                i += 1
+                value = []
+                value_prob = 1
+                for word, (tag, p) in zip(sentence, tags) + [('', ('0', 1))]:
+                    if tag == '1':
+                        value.append(word.lemma)
+                        value_prob = min(value_prob, p)
+                    elif value:
+                        v = '_'.join(value)
                         value = []
+                        if v != entity:
+                            values.append((v, value_prob))
+            #sort by decreasing probabilities
+            values.sort(key=lambda (_, p): -p)
+            if verbose:
+                print entity, values
+            values = [v for v, _ in values]
             if values:
                 if self.predicate in numeric_predicates:
-                    ret.append(values[0])
+                    extracted_values[entity] = values[0]
                     continue
                 #to increase precision of extraction (at the cost of recall) in textual relations, 
-                #only values that are geographic entities in DBPedia are returned
+                #only values that are geographic entities in DBPedia are extracted_valuesurned
                 values_identified_as_entities = [
                     v for v in values if lt.is_entity(v)
                 ]
@@ -123,18 +150,13 @@ class ValueExtractor:
                     any(entities_types.index(t) in lt.entities[v] for t in self.predominant_types)
                 ]
                 if verbose:
-                    print 'Potential values:'
                     print ' '.join(values)
                     print ' '.join(values_identified_as_entities)
                     print ' '.join(values_identified_as_entities_of_right_type)
                     print
                 if values_identified_as_entities_of_right_type:
-                    ret.append(values_identified_as_entities_of_right_type[0])
+                    extracted_values[entity] = values_identified_as_entities_of_right_type[0]
                 elif values_identified_as_entities:
-                    ret.append(values_identified_as_entities[0])
-                else:
-                    ret.append(None)
-            else:
-                ret.append(None)
-        return ret
+                    extracted_values[entity] = values_identified_as_entities[0]
+        return extracted_values
                    
