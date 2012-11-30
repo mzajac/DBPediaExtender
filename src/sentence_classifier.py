@@ -125,7 +125,7 @@ class SentenceClassifier:
             clf = self.classifier.named_steps['c']
             feature_relevance = list(reversed(sorted(zip(clf.coef_[0].toarray()[0], vectorizer.get_feature_names()))))[:n]
             #filter out nondiscriminating features
-            feature_relevance = filter(lambda (v, _): v >= 1.3, feature_relevance)
+            feature_relevance = filter(lambda (v, _): v >= 1, feature_relevance)
             if verbose:
                 print 'Most informative features:'
                 for value, name in feature_relevance:

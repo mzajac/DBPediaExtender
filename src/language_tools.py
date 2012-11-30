@@ -4,17 +4,18 @@ import re
 import glob
 from subprocess import Popen, PIPE
 from os.path import join
+from os import chdir, getcwd
 from string import digits, punctuation
 from locale import atof, setlocale, LC_NUMERIC
 import lxml.etree as etree
 from collections import namedtuple
 from nltk.corpus import wordnet as wn
 
-from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose
+from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser
 from construct_synonym_set import get_synonyms
 from pickler import Pickler
 
-Word = namedtuple('Word', ['segment', 'lemma', 'tag'])
+Word = namedtuple('Word', ['segment', 'lemma', 'tag', 'parse'])
 
 def extract_shortened_name(name):
     return re.split(',|\(', name.replace('_', ' '))[0]
@@ -40,7 +41,6 @@ class LanguageToolsFactory:
 class LanguageTools:
     def __init__(self):
         self.entities = Pickler.load(entities_path)
-        self.synonyms = get_synonyms()
         
     def is_entity(self, segment):
         return segment in self.entities
@@ -53,19 +53,43 @@ class PolishTools(LanguageTools):
     def parse_disamb_file(self, f):
         article = []
         sentence = []
-        for _, elem in etree.iterparse(f,  events=('end',)):
+        for _, elem in etree.iterparse(f):
             if elem.tag == 'chunk' and elem.attrib['type'] == 's':
                 article.append(sentence)
                 sentence = []
             elif elem.tag == 'tok':
                 segment = elem.getchildren()[0].text.encode('utf-8')
                 for interp in elem.iterchildren():
-                    if interp.tag == 'lex':
+                    if interp.tag == 'lex' and 'disamb' in interp.attrib:
                         lemma = interp.getchildren()[0].text.encode('utf-8')
                         tag = interp.getchildren()[1].text.encode('utf-8')
-                        if 'disamb_sh' not in interp.attrib:
-                            break
-                sentence.append(Word(segment, lemma, tag))
+                        break
+                sentence.append(Word(segment, lemma, tag, ''))
+        return article
+        
+    def parse_spejd_file(self, f):
+        article = []
+        sentence = []
+        group_type_stack = []
+        for event, elem in etree.iterparse(f, events=('start', 'end')):
+            if elem.tag == 'group':
+                if event == 'start':
+                    group_type_stack.append(elem.attrib['type'])
+                else:
+                    group_type_stack.pop()
+            if event == 'start':
+                continue
+            if elem.tag == 'chunk' and elem.attrib['type'] == 's':
+                article.append(sentence)
+                sentence = []
+            elif elem.tag == 'tok':
+                segment = elem.getchildren()[0].text.encode('utf-8')
+                for interp in elem.iterchildren():
+                    if interp.tag == 'lex' and 'disamb' in interp.attrib:
+                        lemma = interp.getchildren()[0].text.encode('utf-8')
+                        tag = interp.getchildren()[1].text.encode('utf-8')
+                        break
+                sentence.append(Word(segment, lemma, tag, group_type_stack[-1] if group_type_stack else ''))
         return article
         
     def join_numerals(self, article):
@@ -78,14 +102,14 @@ class PolishTools(LanguageTools):
                         new_lemma = sentence[i].lemma + sentence[i+2].lemma
                     else:
                         new_lemma = sentence[i].lemma + ',' + sentence[i+2].lemma
-                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
+                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag, '')
                     sentence = sentence[: i+1] + sentence[i+3 :]
                 i += 1
             i = 0
             while i < len(sentence) - 1:
                 if is_numeric(sentence[i].lemma) and is_numeric(sentence[i+1].lemma):
                     new_lemma = sentence[i].lemma + sentence[i+1].lemma
-                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
+                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag, '')
                     sentence = sentence[: i+1] + sentence[i+2 :]
                 else:
                     i += 1
@@ -98,7 +122,7 @@ class PolishTools(LanguageTools):
                 if is_numeric(sentence[i].lemma) and sentence[i+1].lemma in thousand + million:
                     product = 10**3 if sentence[i+1].lemma in thousand else 10**6
                     new_lemma = str(int(round(atof(sentence[i].lemma) * product)))
-                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag)
+                    sentence[i] = Word(new_lemma, new_lemma, sentence[i].tag, '')
                     if i < len(sentence) - 2 and sentence[i+1].lemma == 'tys' and sentence[i+2].lemma == '.':
                         sentence = sentence[: i+1] + sentence[i+3 :]
                     else:
@@ -116,7 +140,7 @@ class PolishTools(LanguageTools):
                     if word.lemma[0].isupper() and word.lemma != lemma_suggested_by_link:
 #                        if verbose:
 #                            print 'Lemma correction changed "%s" to "%s".' % (word.lemma, lemma_suggested_by_link)
-                        article[i][j] = Word(word.segment, lemma_suggested_by_link, word.tag)
+                        article[i][j] = Word(word.segment, lemma_suggested_by_link, word.tag, '')
         return article
         
     def prepare_article(self, article, link_dictionary):
@@ -129,8 +153,13 @@ class PolishTools(LanguageTools):
             product = 1000 if 'tys' in value else (10**6 if 'mln' in value else 1)
             #Population value may look '99 2001 Census'. We would like to strip the information about census.
             value = re.sub('\d{4} Census', '', value)
-            #Population sometimes has year of census in parentheses - it should be stripped.
-            value = value.split('(')[0]
+            #Sometimes additional information is provided - it should be stripped.
+            v = []
+            for c in value:
+                if c not in '., ' and not c.isdigit():
+                    break
+                v.append(c)
+            value = ''.join(v)
             try:
                 f = atof(filter(lambda c: c.isdigit() or c == ',', value))
                 return [str(int(round(product * f)))]
@@ -142,22 +171,40 @@ class PolishTools(LanguageTools):
             value = re.sub('\dpx', '', value)
             value = filter(lambda c: not c.isdigit(), value)
         return value.split(' ')
+        
+    def run_nlptools(self, link_dictionaries):
+        if use_parser:
+            self.run_tagger()
+            return self.run_spejd(link_dictionaries)
+        return self.run_tagger(link_dictionaries)
 
-    def run_tagger(self, link_dictionaries):
+    def run_tagger(self, link_dictionaries=None):
         '''runs pantera-tagger on all .txt files in raw_articles_path directory and then parses the results'''
-        command = 'pantera --tagset nkjp -o xces %s/*.txt' % raw_articles_path
+        command = 'pantera --tagset nkjp -o xces-disamb %s/*.txt' % raw_articles_path
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         _, err = p.communicate()
-        if 'ERROR' in err:
-            raise Error('Pantera error:\n\n%s' % err)
+        if 'All done' not in err:
+            raise RuntimeError('Pantera error:\n\n%s' % err)
+        if link_dictionaries is None:
+            return
         articles = {}
         for f in glob.glob('%s/*.disamb' % raw_articles_path):
             i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
             articles[i] = self.prepare_article(self.parse_disamb_file(f), link_dictionaries[i])
         return articles
         
-    def run_spejd(self):
-        pass
+    def run_spejd(self, link_dictionaries):
+        command = 'spejd %s' % raw_articles_path
+        old_path = getcwd()
+        chdir(spejd_path)
+        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+        p.communicate()
+        chdir(old_path)
+        articles = {}
+        for f in glob.glob('%s/*.spejd' % raw_articles_path):
+            i = int(f[len(raw_articles_path)+1 : -len('.txt.spejd')])
+            articles[i] = self.prepare_article(self.parse_spejd_file(f), link_dictionaries[i])
+        return articles
         
     def get_simple_tag(self, tag):
         if tag.startswith('subst'):
@@ -166,7 +213,9 @@ class PolishTools(LanguageTools):
             return 'a'
         elif tag.startswith('adv'):
             return 'r'
-        return None
+        
+    def get_tag(self, tag):
+        return tag.split(':')[0]
         
     def get_hypernyms(self, word):
         def hypernyms(synsets, level=1):
@@ -185,3 +234,6 @@ class PolishTools(LanguageTools):
             synsets = wn.synsets(word.lemma)
         return map(lambda s: s.name, synsets)
 
+#from pprint import pprint
+#a = PolishTools().parse_spejd_file(open('/home/mz/Dokumenty/dbpedia-enricher/ext/spejd-1.3.6/corpus/1.txt.spejd'))
+#pprint(a)

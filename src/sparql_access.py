@@ -88,25 +88,21 @@ def select_entities_of_type(type):
     }''' % (data_source, type)
     return get_results(query)
     
-def select_entities_of_types_not_in_relation(types, predicate):
-    query = [
-        '''PREFIX dbpedia-owl: <%s/ontology/>
-           SELECT ?s FROM <%s> WHERE {
-               ?s rdf:type ?type
-               OPTIONAL {
-                   ?s dbpedia-owl:%s ?p.
-               }
-               FILTER (!bound(?p))
-               FILTER (
-        ''' % (data_source, data_source, predicate)
-    ]
-    subquery = []
-    for type in types:
-        subquery.append('?type = <%s>' % type)
-    query.append(' || '.join(subquery))
-    query.append(')}')
-    query = '\n'.join(query)
-    return get_results(query)
+def select_entities_of_type_not_in_relation(type, predicate):
+    #Queries like the one below don't work on Virtuoso version 6.1 (on 6.4 they do).
+    #Therefore I use two queries and join their results manually.
+    '''SELECT * WHERE {
+        {SELECT ?s WHERE { 
+            ?s <http://pl.dbpedia.org/property/populacja> ?o. 
+        }}
+        MINUS
+        {{SELECT ?s WHERE { 
+            ?s <http://pl.dbpedia.org/property/stolica> ?o. 
+        }}}
+    }'''
+    entities_of_type = select_entities_of_type(type)
+    entities_in_relation = set([s for s, o in select_all({'p': predicate})])
+    return filter(lambda e: e not in entities_in_relation, entities_of_type)
     
 def select_entities_of_type_in_relation(type, predicate):
     query = '''SELECT ?s, ?o FROM <%s> WHERE {

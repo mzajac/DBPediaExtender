@@ -1,7 +1,8 @@
+#encoding: utf-8
 from collections import defaultdict
 
 from config import candidates_cache_path
-from sparql_access import select_types, count_entities_of_type, select_entities_of_types_not_in_relation
+from sparql_access import select_types, count_entities_of_type, select_entities_of_type_not_in_relation
 from pickler import Pickler
 
 class CandidatesSelector:
@@ -11,6 +12,7 @@ class CandidatesSelector:
         'http://www.w3.org/2002/07/owl#Thing',
         'http://dbpedia.org/ontology/Place',
         'http://dbpedia.org/ontology/NaturalPlace',
+        'http://dbpedia.org/ontology/BodyOfWater',
         'http://www.opengis.net/gml/_Feature'
     ]
 
@@ -46,9 +48,10 @@ class CandidatesSelector:
         types = CandidatesSelector.get_most_specific_types(
             CandidatesSelector.get_predominant_types(predicate)
         )
-        if types:
-            candidates = select_entities_of_types_not_in_relation(
-                types, 
+        if types: 
+            print types
+            candidates = select_entities_of_type_not_in_relation(
+                types[0], 
                 predicate
             )
             Pickler.store(candidates, candidates_cache_path % predicate)
@@ -56,5 +59,3 @@ class CandidatesSelector:
         else:
             return []
         
-if __name__ == '__main__':
-    pass

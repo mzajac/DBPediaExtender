@@ -4,7 +4,7 @@ from codecs import open as copen
 from subprocess import Popen, PIPE
 from itertools import izip
 
-from config import models_cache_path, verbose, numeric_predicates
+from config import models_cache_path, verbose, numeric_predicates, use_parser
 from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 from candidates_selector import CandidatesSelector
@@ -39,8 +39,8 @@ class ValueExtractor:
                 segment = word.segment
                 word_features = {
                     'segment': segment,
-                    'tag': word.tag,
-#                    'hypernym': str(lt.get_hypernyms(word)),
+                    'tag': lt.get_tag(word.tag),
+#                    'hypernym': ''.join(lt.get_hypernyms(word)),
                     'lemma': lemma,
                     'recent_year': str(int(recent_year(lemma))),
                     'alldigits': str(int(lemma.isdigit())),
@@ -49,6 +49,8 @@ class ValueExtractor:
                     'segm_starts_with_capital': str(int(segment.decode('utf-8')[0].isupper())),
                     'numeric': str(int(is_numeric(lemma)))
                 }
+                if use_parser:
+                    word_features['group'] = word.parse
                 for name, feature in word_features.iteritems():
                     features['%d%s' % (j, name)] = feature
         return features
@@ -89,7 +91,7 @@ class ValueExtractor:
                 weight = float(weight)
                 feature_weights.append((weight, feature))
         feature_weights.sort(key=lambda (w, _): -w)
-        feature_weights = feature_weights[:n]
+        feature_weights = filter(lambda (w, _): 1, feature_weights[:n])
         print 'Value extractor - most informative features:'
         for weight, feature in feature_weights:
             print '%s %s' % (weight, feature)
@@ -129,7 +131,7 @@ class ValueExtractor:
                     elif value:
                         v = '_'.join(value)
                         value = []
-                        if v != entity:
+                        if v != entity or self.predicate in ['gmina']:
                             values.append((v, value_prob))
             #sort by decreasing probabilities
             values.sort(key=lambda (_, p): -p)
@@ -150,13 +152,14 @@ class ValueExtractor:
                     any(entities_types.index(t) in lt.entities[v] for t in self.predominant_types)
                 ]
                 if verbose:
-                    print ' '.join(values)
-                    print ' '.join(values_identified_as_entities)
+                    print ' '.join(values),
+                    print ' '.join(values_identified_as_entities),
                     print ' '.join(values_identified_as_entities_of_right_type)
-                    print
                 if values_identified_as_entities_of_right_type:
                     extracted_values[entity] = values_identified_as_entities_of_right_type[0]
                 elif values_identified_as_entities:
                     extracted_values[entity] = values_identified_as_entities[0]
+                elif self.predicate in ['gmina']:
+                    extracted_values[entity] = values[0]
         return extracted_values
                    

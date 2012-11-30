@@ -46,11 +46,11 @@ def prepare_articles(names):
             out = copen(join(raw_articles_path, '%d.txt' % i), 'w', 'utf-8')
             print >>out, article
     if found:
-        articles = lt.run_tagger(link_dictionaries)
+        articles = lt.run_nlptools(link_dictionaries)
         #remove temporary files
         for f in glob.glob(join(raw_articles_path, "*.txt*")):
             os.remove(f)
         #save processed articles
         for i, article in articles.iteritems():
             Pickler.store(article, articles_cache_path % names[i])
-            
+

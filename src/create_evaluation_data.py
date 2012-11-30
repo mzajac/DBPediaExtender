@@ -12,8 +12,8 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = 'uchodziDo'
-    test_data_limit = 500
+    predicate = 'powiat'
+    test_data_limit = 100
     entities_f = open(tests_path + '%s/entities' % predicate, 'w')
     values_f = open(tests_path + '%s/values' % predicate, 'w')
     articles_f = open(tests_path + '%s/articles' % predicate, 'w')
@@ -36,5 +36,5 @@ if __name__ == '__main__':
             print >>articles_f, ' '.join(sentence)
         print >>articles_f
         print >>entities_f, subject
-        print >>values_f, subject
+        print >>values_f, subject, value[0]
 

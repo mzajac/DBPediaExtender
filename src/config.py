@@ -11,7 +11,7 @@ candidates_limit = 1000
 #limits number of triples used in training
 training_limit = 10000
 #use spejd (this increases running time)
-use_parser = False
+use_parser = True
 
 #predicates to learn
 predicates = [
@@ -20,12 +20,15 @@ predicates = [
     'uchodziDo',
     'źródłoGdzie',
     'uchodziGdzie',
-    'kontynent',
+    'gmina',
+    'powiat',
+    'województwo',
+    'region',
+    'departament',
+    'prowincja',
 ][1:2]
 predicates = map(quote_plus, predicates)
-#specifying which of the predicates are numerical, may improve performance
 numeric_predicates = set(['populacja'])
-
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 lang = 'pl'
@@ -40,9 +43,10 @@ wikidump_path = data_path + '%s/wiki' % lang
 cache_path = main_path + 'cache/'
 entities_path = cache_path + '%s/entities.pkl' % lang
 synonyms_path = cache_path + '%s/synonyms.pkl' % lang
-articles_cache_path = cache_path + '%s/articles/%%s' % lang
+articles_cache_path = cache_path + '%s/articles_spejd/%%s' % lang if use_parser else cache_path + '%s/articles/%%s' % lang
 candidates_cache_path = cache_path + '%s/candidates/%%s' % lang
 models_cache_path = cache_path + '%s/models/%%s' % lang
 results_path = main_path + 'results/%s/' % lang
 tests_path = main_path + 'tests/%s/' % lang
+spejd_path = ext_path + 'spejd-1.3.6'
 
