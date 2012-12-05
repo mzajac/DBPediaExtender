@@ -1,8 +1,8 @@
 #encoding: utf-8
 from collections import defaultdict
 
-from config import candidates_cache_path
-from sparql_access import select_types, count_entities_of_type, select_entities_of_type_not_in_relation
+from config import candidates_cache_path, type_restrictions
+from sparql_access import select_types, count_entities_of_type, select_entities_of_type_not_in_relation, full_type_name
 from pickler import Pickler
 
 class CandidatesSelector:
@@ -18,6 +18,10 @@ class CandidatesSelector:
 
     @staticmethod
     def get_predominant_types(predicate, subject=True):
+        if predicate in type_restrictions:
+            return [full_type_name(type_restrictions[predicate])]
+        if predicate == 'stolica':
+            return [u'http://dbpedia.org/ontology/Settlement']
         type_preciseness = .9
         types_list = select_types(predicate, subject)
         types_count = defaultdict(int)
@@ -49,7 +53,6 @@ class CandidatesSelector:
             CandidatesSelector.get_predominant_types(predicate)
         )
         if types: 
-            print types
             candidates = select_entities_of_type_not_in_relation(
                 types[0], 
                 predicate
@@ -58,4 +61,4 @@ class CandidatesSelector:
             return candidates
         else:
             return []
-        
+

@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 import sys
+import os
+import errno
 from itertools import izip
 from collections import defaultdict
 from random import shuffle
 
-from config import tests_path
+from config import tests_path, predicates, type_restrictions
 from sparql_access import select_all, select_entities_of_type_in_relation
 from sentence_classifier import SentenceClassifier
 from article_access import get_article, prepare_articles
@@ -12,12 +14,23 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = 'powiat'
-    test_data_limit = 100
+    predicate = ''
+    test_data_limit = 200
+    #create dir if doesn't exist
+    try:
+        os.makedirs(tests_path + '%s' % predicate)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
     entities_f = open(tests_path + '%s/entities' % predicate, 'w')
     values_f = open(tests_path + '%s/values' % predicate, 'w')
     articles_f = open(tests_path + '%s/articles' % predicate, 'w')
-    names = select_all({'p': predicate})
+    if predicate in type_restrictions:
+        names = select_entities_of_type_in_relation(
+            type_restrictions[predicate], predicate
+        )    
+    else:
+        names = select_all({'p': predicate})
     shuffle(names)
     names = names[: test_data_limit]
     subjects, objects = zip(*list(names))
@@ -36,5 +49,5 @@ if __name__ == '__main__':
             print >>articles_f, ' '.join(sentence)
         print >>articles_f
         print >>entities_f, subject
-        print >>values_f, subject, value[0]
+        print >>values_f, subject, value[0].encode('utf-8')
 

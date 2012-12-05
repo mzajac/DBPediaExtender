@@ -3,8 +3,9 @@ import sys
 from codecs import open as copen
 from subprocess import Popen, PIPE
 from itertools import izip
+from locale import atof
 
-from config import models_cache_path, verbose, numeric_predicates, use_parser
+from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode
 from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 from candidates_selector import CandidatesSelector
@@ -36,10 +37,18 @@ class ValueExtractor:
             if 0 <= i + j < len(sentence):
                 word = sentence[i + j]
                 lemma = word.lemma
+                if is_numeric(lemma):
+                    lemma = str(int(atof(lemma)))
                 segment = word.segment
+                tag = word.tag
                 word_features = {
                     'segment': segment,
-                    'tag': lt.get_tag(word.tag),
+                    'tag': lt.get_tag(tag),
+                    'case': lt.get_case(tag),
+                    'number': lt.get_number(tag),
+                    'gender': lt.get_gender(tag),
+                    'person': lt.get_person(tag),
+                    'aspect': lt.get_aspect(tag),
 #                    'hypernym': ''.join(lt.get_hypernyms(word)),
                     'lemma': lemma,
                     'recent_year': str(int(recent_year(lemma))),
@@ -97,7 +106,7 @@ class ValueExtractor:
             print '%s %s' % (weight, feature)
         print
 
-    def extract_values(self, extracted_sentences):
+    def extract_values(self, extracted_sentences, confidence_level=.7):
         sentences = [
             sentence
             for entity, sentences in extracted_sentences.iteritems()
@@ -134,7 +143,9 @@ class ValueExtractor:
                         if v != entity or self.predicate in ['gmina']:
                             values.append((v, value_prob))
             #sort by decreasing probabilities
+            values = filter(lambda (_, p): p > confidence_level, values)
             values.sort(key=lambda (_, p): -p)
+            values = map(lambda (v, p): (str(int(atof(v))) if is_numeric(v) else v, p), values)
             if verbose:
                 print entity, values
             values = [v for v, _ in values]
@@ -157,7 +168,7 @@ class ValueExtractor:
                     print ' '.join(values_identified_as_entities_of_right_type)
                 if values_identified_as_entities_of_right_type:
                     extracted_values[entity] = values_identified_as_entities_of_right_type[0]
-                elif values_identified_as_entities:
+                elif values_identified_as_entities and evaluation_mode:
                     extracted_values[entity] = values_identified_as_entities[0]
                 elif self.predicate in ['gmina']:
                     extracted_values[entity] = values[0]

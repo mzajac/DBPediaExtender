@@ -30,7 +30,8 @@ def get_article(name):
         
 def prepare_articles(names):
     '''saves tagged articles about given entities in a cache'''
-    #save articles in temporary files
+    for f in glob.glob(join(raw_articles_path, "*.txt*")):
+        os.remove(f)
     found = False
     link_dictionaries = {}
     for i, name in enumerate(names):
@@ -47,7 +48,6 @@ def prepare_articles(names):
             print >>out, article
     if found:
         articles = lt.run_nlptools(link_dictionaries)
-        #remove temporary files
         for f in glob.glob(join(raw_articles_path, "*.txt*")):
             os.remove(f)
         #save processed articles

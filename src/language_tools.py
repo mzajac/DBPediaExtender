@@ -33,8 +33,6 @@ class LanguageToolsFactory:
     @staticmethod
     def get_language_tools():
         if lang == 'pl':
-            #set ',' as decimal character
-            setlocale(LC_NUMERIC, '')
             return PolishTools()
         raise NotImplementedError()
         
@@ -48,6 +46,8 @@ class LanguageTools:
 
 class PolishTools(LanguageTools):
     def __init__(self):
+        #set ',' as decimal character
+        setlocale(LC_NUMERIC, 'pl_PL.UTF-8')
         LanguageTools.__init__(self)
 
     def parse_disamb_file(self, f):
@@ -84,6 +84,9 @@ class PolishTools(LanguageTools):
                 sentence = []
             elif elem.tag == 'tok':
                 segment = elem.getchildren()[0].text.encode('utf-8')
+                #default lemma and tag
+                lemma = segment
+                tag = 'ign'
                 for interp in elem.iterchildren():
                     if interp.tag == 'lex' and 'disamb' in interp.attrib:
                         lemma = interp.getchildren()[0].text.encode('utf-8')
@@ -157,20 +160,32 @@ class PolishTools(LanguageTools):
             v = []
             for c in value:
                 if c not in '., ' and not c.isdigit():
-                    break
-                v.append(c)
+                    if v:                
+                        break
+                else:
+                    v.append(c)
             value = ''.join(v)
             try:
                 f = atof(filter(lambda c: c.isdigit() or c == ',', value))
-                return [str(int(round(product * f)))]
+                return [str(int(product * f))]
             except ValueError:
                 pass
+            value = value.split(' ')
+            for v in value:
+                print v
+                try:
+                    f = atof(v)
+                    print f
+                    return [str(int(f))]
+                except ValueError:
+                    pass
+            return []
         else:
             #in Polish DBPedia a picture is often a part of a value 
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
             value = re.sub('\dpx', '', value)
             value = filter(lambda c: not c.isdigit(), value)
-        return value.split(' ')
+            return value.split(' ')
         
     def run_nlptools(self, link_dictionaries):
         if use_parser:
@@ -180,11 +195,16 @@ class PolishTools(LanguageTools):
 
     def run_tagger(self, link_dictionaries=None):
         '''runs pantera-tagger on all .txt files in raw_articles_path directory and then parses the results'''
-        command = 'pantera --tagset nkjp -o xces-disamb %s/*.txt' % raw_articles_path
-        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
-        _, err = p.communicate()
-        if 'All done' not in err:
-            raise RuntimeError('Pantera error:\n\n%s' % err)
+        command = 'pantera --skip-done --tagset nkjp -o xces-disamb %s/*.txt' % raw_articles_path
+        #Pantera tagger sometimes segmfaults in seemingly random places.
+        #Being unable to find the cause, I simply call it again, until it finishes without errors.
+        while True:
+            print 'Calling pantera.'
+            p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+            _, err = p.communicate()
+            if 'All done' in err:
+                break
+        #if link dictionaries were not provided, don't save the articles yet, only after running the parser
         if link_dictionaries is None:
             return
         articles = {}
@@ -207,15 +227,32 @@ class PolishTools(LanguageTools):
         return articles
         
     def get_simple_tag(self, tag):
-        if tag.startswith('subst'):
+        if tag.startswith('subst:'):
             return 'n'
-        elif tag.startswith('adj'):
+        elif tag.startswith('adj:'):
             return 'a'
-        elif tag.startswith('adv'):
+        elif tag.startswith('adv:'):
             return 'r'
+        elif tag.startswith('fin:') or tag.startswith('praet:'):
+            return 'v'
         
     def get_tag(self, tag):
         return tag.split(':')[0]
+        
+    def get_gender(self, tag):
+        return tag.split(':')[3] if self.get_simple_tag(tag) in ['a', 'n'] else ''
+        
+    def get_case(self, tag):
+        return tag.split(':')[2] if self.get_simple_tag(tag) in ['a', 'n'] else ''
+        
+    def get_person(self, tag):
+        return tag.split(':')[2] if self.get_simple_tag(tag) == 'v' else ''
+        
+    def get_number(self, tag):
+        return tag.split(':')[1] if self.get_simple_tag(tag) in ['a', 'n', 'v'] else ''
+        
+    def get_aspect(self, tag):
+        return tag.split(':')[3] if self.get_simple_tag(tag) == 'v' else ''
         
     def get_hypernyms(self, word):
         def hypernyms(synsets, level=1):
@@ -234,6 +271,6 @@ class PolishTools(LanguageTools):
             synsets = wn.synsets(word.lemma)
         return map(lambda s: s.name, synsets)
 
-#from pprint import pprint
-#a = PolishTools().parse_spejd_file(open('/home/mz/Dokumenty/dbpedia-enricher/ext/spejd-1.3.6/corpus/1.txt.spejd'))
-#pprint(a)
+#assert PolishTools().prepare_value('ok. 34,5 km', 'd%C5%82ugo%C5%9B%C4%87')[0] == '34'
+#assert PolishTools().prepare_value('12,1 tys.', 'populacja')[0] == '12100'
+#assert PolishTools().prepare_value('0,9 mln.', 'populacja')[0] == '900000'

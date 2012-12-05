@@ -12,8 +12,8 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 
-from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode, numeric_predicates
-from sparql_access import select_all
+from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode, numeric_predicates, type_restrictions
+from sparql_access import select_all, select_entities_of_type_in_relation
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
 from article_access import get_article, prepare_articles
@@ -79,7 +79,12 @@ class SentenceClassifier:
         return positive, negative
         
     def train(self):
-        names = select_all({'p': self.predicate})
+        if self.predicate in type_restrictions:
+            names = select_entities_of_type_in_relation(
+                type_restrictions[self.predicate], self.predicate
+            )    
+        else:
+            names = select_all({'p': self.predicate})
 #        shuffle(names)
         names = names[: training_limit]
         if verbose:
@@ -137,7 +142,6 @@ class SentenceClassifier:
         
     def extract_sentences(self, entities):
         articles = prepare_articles(entities)
-#        ret_entities, ret_sentences = [], []
         extracted_sentences = defaultdict(list)
         if verbose:
             print 'Classifying sentences:'
@@ -157,8 +161,8 @@ class SentenceClassifier:
                     extracted_sentences[entity].append(sentence)
                     if verbose:
                         print '***', '%.2f' % p, ' '.join([w.segment for w in sentence])
-#                elif verbose:
-#                    print '%.2f' % p, ' '.join([w.segment for w in sentence])
+                elif verbose:
+                    print '%.2f' % p, ' '.join([w.segment for w in sentence])
             if verbose:
                 print
         return extracted_sentences

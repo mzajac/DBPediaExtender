@@ -4,10 +4,10 @@ from urllib import quote_plus
 import os
 
 verbose = True
-#evaluation mode: 0(default) -> no evaluation, 1 -> performs evaluation using data from the tests/ directory
-evaluation_mode = 1
+#evaluation mode: 0 -> no evaluation, 1 -> performs evaluation using data from the tests/ directory
+evaluation_mode = 0
 #limits number of candidates for learning
-candidates_limit = 1000
+candidates_limit = 10000
 #limits number of triples used in training
 training_limit = 10000
 #use spejd (this increases running time)
@@ -18,17 +18,23 @@ predicates = [
     'populacja',
     'stolica',
     'uchodziDo',
-    'źródłoGdzie',
-    'uchodziGdzie',
     'gmina',
     'powiat',
     'województwo',
     'region',
     'departament',
     'prowincja',
-][1:2]
+    'długość'
+#    'źródłoGdzie',
+#    'uchodziGdzie',
+][9:10]
 predicates = map(quote_plus, predicates)
-numeric_predicates = set(['populacja'])
+numeric_predicates = set(['populacja', quote_plus('długość')])
+
+#Some predicates are too broad and it's necessary to specify we are only interested in entities of specific type.
+type_restrictions = {
+    quote_plus('długość'): 'Stream',
+}
 
 sparql_endpoint = "http://localhost:8890/sparql/"
 lang = 'pl'
