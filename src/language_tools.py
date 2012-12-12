@@ -1,5 +1,6 @@
 #encoding: utf-8
 import sys
+import os
 import re
 import glob
 from subprocess import Popen, PIPE
@@ -11,11 +12,12 @@ import lxml.etree as etree
 from collections import namedtuple
 from nltk.corpus import wordnet as wn
 
-from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser
+from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser, parser_type, maltparser_path
 from construct_synonym_set import get_synonyms
 from pickler import Pickler
 
 Word = namedtuple('Word', ['segment', 'lemma', 'tag', 'parse'])
+article_sentence_limit = 10
 
 def extract_shortened_name(name):
     return re.split(',|\(', name.replace('_', ' '))[0]
@@ -172,10 +174,8 @@ class PolishTools(LanguageTools):
                 pass
             value = value.split(' ')
             for v in value:
-                print v
                 try:
                     f = atof(v)
-                    print f
                     return [str(int(f))]
                 except ValueError:
                     pass
@@ -189,8 +189,12 @@ class PolishTools(LanguageTools):
         
     def run_nlptools(self, link_dictionaries):
         if use_parser:
-            self.run_tagger()
-            return self.run_spejd(link_dictionaries)
+            if parser_type == 'shallow':
+                self.run_tagger()
+                return self.run_spejd(link_dictionaries)
+            elif parser_type == 'dependency':
+                return self.run_dependency_parser(self.run_tagger(link_dictionaries))
+            raise RuntimeError('Parser type unknown.')
         return self.run_tagger(link_dictionaries)
 
     def run_tagger(self, link_dictionaries=None):
@@ -199,7 +203,6 @@ class PolishTools(LanguageTools):
         #Pantera tagger sometimes segmfaults in seemingly random places.
         #Being unable to find the cause, I simply call it again, until it finishes without errors.
         while True:
-            print 'Calling pantera.'
             p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
             _, err = p.communicate()
             if 'All done' in err:
@@ -226,6 +229,56 @@ class PolishTools(LanguageTools):
             articles[i] = self.prepare_article(self.parse_spejd_file(f), link_dictionaries[i])
         return articles
         
+    def run_dependency_parser(self, articles):
+        model_filename = 'skladnica_liblinear_stackeager_final.mco'
+        input_filename = 'i.conll'
+        output_filename = 'o.conll'
+        command = 'java -jar maltparser-1.7.1.jar -c %s -i %s -o %s -m parse' % (model_filename, input_filename, output_filename)
+        old_path = getcwd()
+        chdir(maltparser_path)
+        self.save_conll_format(articles, input_filename)
+        p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+        p.communicate()
+        self.read_conll_format(articles, output_filename)
+        os.remove(input_filename)
+        os.remove(output_filename)
+        chdir(old_path)
+        return articles
+        
+    def save_conll_format(self, articles, filename):
+        with open(filename, 'w') as f:
+            for article in articles.itervalues():
+                for sentence in article:
+                    for i, word in enumerate(sentence):
+                        print >>f, '\t'.join([
+                            str(i+1),
+                            word.segment,
+                            word.lemma,
+                            self.get_tag(word.tag),
+                            self.get_tag(word.tag),
+                            self.get_morph_features(word.tag)
+                        ])
+                    print >>f
+                
+    def read_conll_format(self, articles, filename):
+        i, j, k = 0, 0, 0
+        values = list(articles.keys())
+        with open(filename) as f:
+            for line in f:
+                if line == '\n':
+                    j += 1
+                    k = 0
+                    continue
+                line = line.split('\t')
+                index = values[i]
+                while j == len(articles[index]):
+                    i += 1
+                    j = 0
+                    index = values[i]
+                word = articles[index][j][k]
+                articles[index][j][k] = Word(word.segment, word.lemma, word.tag, line[7])
+                k += 1
+        
     def get_simple_tag(self, tag):
         if tag.startswith('subst:'):
             return 'n'
@@ -235,6 +288,10 @@ class PolishTools(LanguageTools):
             return 'r'
         elif tag.startswith('fin:') or tag.startswith('praet:'):
             return 'v'
+            
+    def get_morph_features(self, tag):
+        features = tag.split(':')[1:]
+        return '|'.join(features) if features else '_'
         
     def get_tag(self, tag):
         return tag.split(':')[0]

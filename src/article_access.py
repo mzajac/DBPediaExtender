@@ -7,7 +7,7 @@ from codecs import open as copen
 
 from wikipedia_cleaner import clean
 from config import raw_articles_path, articles_cache_path
-from language_tools import LanguageToolsFactory
+from language_tools import LanguageToolsFactory, article_sentence_limit
 from pickler import Pickler
 
 lt = LanguageToolsFactory.get_language_tools()
@@ -24,7 +24,7 @@ def get_raw_article(name):
 
 def get_article(name):
     try:
-        return Pickler.load(articles_cache_path % name)
+        return Pickler.load(articles_cache_path % name)[: article_sentence_limit]
     except IOError:
         raise ArticleNotFoundError(name)
         

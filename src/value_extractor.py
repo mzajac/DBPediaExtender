@@ -49,7 +49,6 @@ class ValueExtractor:
                     'gender': lt.get_gender(tag),
                     'person': lt.get_person(tag),
                     'aspect': lt.get_aspect(tag),
-#                    'hypernym': ''.join(lt.get_hypernyms(word)),
                     'lemma': lemma,
                     'recent_year': str(int(recent_year(lemma))),
                     'alldigits': str(int(lemma.isdigit())),
@@ -59,7 +58,7 @@ class ValueExtractor:
                     'numeric': str(int(is_numeric(lemma)))
                 }
                 if use_parser:
-                    word_features['group'] = word.parse
+                    word_features['parse'] = word.parse
                 for name, feature in word_features.iteritems():
                     features['%d%s' % (j, name)] = feature
         return features
