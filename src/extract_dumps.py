@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import sys
 import os
 from urllib2 import unquote
@@ -9,6 +8,7 @@ import lxml.etree as etree
 from pickler import Pickler
 from codecs import open as copen
 from os.path import join
+import fnmatch
 
 from config import entities_path, raw_articles_path, wikidump_path
 from language_tools import extract_shortened_name
@@ -21,11 +21,12 @@ def main():
             
 def files(dirname):
     for root, _, files in os.walk(dirname):
-        files = map(lambda f: join(root, f), files)
-        for f in files:
-            yield f
+        for f in fnmatch.filter(files, '*.bz2'):
+            yield join(root, f)
             
 def parse(filename, entities, dirname):
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     f = BZ2File(filename)
     for _, elem in etree.iterparse(f, events=('end',)):
         if elem.tag[-5:] == 'title':

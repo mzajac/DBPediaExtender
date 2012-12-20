@@ -82,7 +82,7 @@ def run_evaluation(predicate, confidence_level=None):
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
     print '%d entities were considered.' % len(entities)
     extracted_sentences = sc.extract_sentences(entities)
-    ve = ValueExtractor(predicate, sc.extractor_training_data, sc.most_informative_features)
+    ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = ve.extract_values(extracted_sentences)
     print 'Results:'
     stats, fp, fn = ValueExtractorEvaluator.evaluate(true_values, values)

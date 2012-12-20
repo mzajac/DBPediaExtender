@@ -1,9 +1,11 @@
+#encoding: utf-8
 import os
 import sys
 from codecs import open as copen
 from subprocess import Popen, PIPE
 from itertools import izip
 from locale import atof
+from urllib import quote_plus
 
 from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode
 from language_tools import LanguageToolsFactory, is_numeric
@@ -13,9 +15,8 @@ from candidates_selector import CandidatesSelector
 lt = LanguageToolsFactory.get_language_tools()
 
 class ValueExtractor:
-    def __init__(self, predicate, training_data, features):
+    def __init__(self, predicate, training_data):
         self.predicate = predicate
-        self.most_informative_features = features
         self.predominant_types = map(
             lambda t: t.split('/')[-1], 
             CandidatesSelector.get_predominant_types(predicate, False)
@@ -69,7 +70,7 @@ class ValueExtractor:
             for j, word in enumerate(sentence):
                 if selected_values:
                     values = selected_values[i]
-                    cls = int(any(word.lemma == value for value in values))
+                    cls = int(any(value.lower() in [word.lemma.lower(), word.segment.lower()] for value in values))
                     print >>f, '%d\t' % cls,
                 for name, value in self.extract_features(sentence, j).iteritems():
                     print >>f, ('%s=%s\t' % (name, value)).decode('utf-8'),
@@ -132,13 +133,25 @@ class ValueExtractor:
                 i += 1
                 value = []
                 value_prob = 1
+                #automatically join hyphenated words
+                for j, word in enumerate(sentence):
+                    if word.lemma == '-':
+                        tags[j] = ('1', 1)
                 for word, (tag, p) in zip(sentence, tags) + [('', ('0', 1))]:
                     if tag == '1':
+                        if word.lemma == '-' and not value:
+                            continue
                         value.append(word.lemma)
                         value_prob = min(value_prob, p)
                     elif value:
-                        v = '_'.join(value)
+                        if value[-1] == '-':
+                            value.pop()
+                        if not value:
+                            continue
+                        v = '_'.join(value).replace('_-_', '-')
                         value = []
+                        value_prob = 1
+                        #gmina can have the same name as its main city (in fact, it very often does)
                         if v != entity or self.predicate in ['gmina']:
                             values.append((v, value_prob))
             #sort by decreasing probabilities
@@ -169,7 +182,7 @@ class ValueExtractor:
                     extracted_values[entity] = values_identified_as_entities_of_right_type[0]
                 elif values_identified_as_entities and evaluation_mode:
                     extracted_values[entity] = values_identified_as_entities[0]
-                elif self.predicate in ['gmina']:
+                elif self.predicate in ['gmina', 'powiat', quote_plus('województwo')]:
                     extracted_values[entity] = values[0]
         return extracted_values
                    

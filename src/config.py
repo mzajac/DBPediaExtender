@@ -11,7 +11,7 @@ candidates_limit = 10000
 #limits number of triples used in training
 training_limit = 10000
 #use spejd (this increases running time)
-use_parser = True
+use_parser = False
 parser_type = 'dependency' #'shallow'
 
 #predicates to learn
@@ -23,10 +23,9 @@ predicates = [
     'powiat',
     'województwo',
     'region',
-    'departament',
     'prowincja',
     'długość'
-][2:3]
+][7:8]
 predicates = map(quote_plus, predicates)
 numeric_predicates = set(['populacja', quote_plus('długość')])
 

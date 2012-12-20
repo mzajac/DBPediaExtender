@@ -14,9 +14,8 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = ''
-    test_data_limit = 200
-    #create dir if doesn't exist
+    predicate = 'prowincja'
+    test_data_limit = 100
     try:
         os.makedirs(tests_path + '%s' % predicate)
     except OSError as e:
@@ -49,5 +48,5 @@ if __name__ == '__main__':
             print >>articles_f, ' '.join(sentence)
         print >>articles_f
         print >>entities_f, subject
-        print >>values_f, subject, value[0].encode('utf-8')
+        print >>values_f, subject, value[0].replace(' ', '_')
 

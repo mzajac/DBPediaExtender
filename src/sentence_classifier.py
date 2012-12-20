@@ -66,16 +66,16 @@ class SentenceClassifier:
                 continue
             pos = []
             object = lt.prepare_value(object, self.predicate)
-            object_filtered = filter(lambda w: w and not w[0].islower(), object)
             for sentence in article:
                 lemmas = [word.lemma for word in sentence]
-                if any(o in lemmas for o in object_filtered):
+                if any(o in lemmas for o in object):
                     pos.append((sentence, object))
                 else:
                     negative.append(sentence)
             if self.predicate == 'stolica':
                 pos = filter(lambda (s, _): any(word in [w.lemma for w in s] for word in self.predicate_words), pos)
             positive += pos
+        assert len(positive) > 10, 'Too little training examples.'
         return positive, negative
         
     def train(self):
@@ -85,7 +85,13 @@ class SentenceClassifier:
             )    
         else:
             names = select_all({'p': self.predicate})
-#        shuffle(names)
+        new_names = []
+        values_added = set()
+        for e, v in names:
+            if v not in values_added:
+                values_added.add(v)
+                new_names.append((e, v))
+        names = new_names
         names = names[: training_limit]
         if verbose:
             print '%d articles processed during training.' % len(names)
@@ -118,7 +124,7 @@ class SentenceClassifier:
             ('c', SVC(kernel='linear', probability=True)),
         ]) 
         self.classifier.fit(map(self.get_features, sentences), classes)
-        self.most_informative_features = self.get_most_informative_features()
+        self.get_most_informative_features()
         self.entities = set(
             e for e, v in names
         )
@@ -136,9 +142,8 @@ class SentenceClassifier:
                 for value, name in feature_relevance:
                     print '%s %.2f' % (name, value)
                 print
-            return zip(*feature_relevance)[1]
         except ValueError:
-            return []
+            pass
         
     def extract_sentences(self, entities):
         articles = prepare_articles(entities)
