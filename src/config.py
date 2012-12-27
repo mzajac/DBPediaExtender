@@ -83,6 +83,7 @@ def check():
     except ValueError:
         raise RuntimeError('Cannot access SPARQL endpoint: %s.' % sparql_endpoint)
     #raw articles are available
+    create_dir(data_path)
     create_dir(raw_articles_path)
     if not os.listdir(raw_articles_path):
         #Wikipedia data archive is available
