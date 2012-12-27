@@ -21,10 +21,13 @@ class ValueExtractor:
             lambda t: t.split('/')[-1], 
             CandidatesSelector.get_predominant_types(predicate, False)
         )
-        self.model_filename = 'crfmodel'
+        self.model_filename = 'crfmodel-%s' % predicate
         self.features_train_filename = 'features_train'
         self.features_tag_filename = 'features_tag'
-        self.train(training_data)
+        try:
+            open(models_cache_path % self.model_filename)
+        except IOError:
+            self.train(training_data)
         
     def extract_features(self, sentence, i, window_size=3):
         def recent_year(word):
@@ -56,7 +59,9 @@ class ValueExtractor:
                     'allalpha': str(int(lemma.decode('utf-8').isalpha())),
                     'starts_with_capital': str(int(lemma.decode('utf-8')[0].isupper())),
                     'segm_starts_with_capital': str(int(segment.decode('utf-8')[0].isupper())),
-                    'numeric': str(int(is_numeric(lemma)))
+                    'numeric': str(int(is_numeric(lemma))),
+                    'len': str(len(lemma)),
+                    'len<': str(int(len(lemma) < 4)),
                 }
                 if use_parser:
                     word_features['parse'] = word.parse
@@ -106,7 +111,7 @@ class ValueExtractor:
             print '%s %s' % (weight, feature)
         print
 
-    def extract_values(self, extracted_sentences, confidence_level=.7):
+    def extract_values(self, extracted_sentences, confidence_level=.75):
         sentences = [
             sentence
             for entity, sentences in extracted_sentences.iteritems()
@@ -150,10 +155,10 @@ class ValueExtractor:
                             continue
                         v = '_'.join(value).replace('_-_', '-')
                         value = []
-                        value_prob = 1
                         #gmina can have the same name as its main city (in fact, it very often does)
                         if v != entity or self.predicate in ['gmina']:
                             values.append((v, value_prob))
+                        value_prob = 1
             #sort by decreasing probabilities
             values = filter(lambda (_, p): p > confidence_level, values)
             values.sort(key=lambda (_, p): -p)
@@ -180,9 +185,9 @@ class ValueExtractor:
                     print ' '.join(values_identified_as_entities_of_right_type)
                 if values_identified_as_entities_of_right_type:
                     extracted_values[entity] = values_identified_as_entities_of_right_type[0]
-                elif values_identified_as_entities and evaluation_mode:
+                elif values_identified_as_entities:
                     extracted_values[entity] = values_identified_as_entities[0]
-                elif self.predicate in ['gmina', 'powiat', quote_plus('województwo')]:
+                elif self.predicate in ['gmina', 'powiat', quote_plus('województwo'), 'hrabstwo', 'stan']:
                     extracted_values[entity] = values[0]
         return extracted_values
                    

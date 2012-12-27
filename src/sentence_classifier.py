@@ -7,6 +7,8 @@ from collections import defaultdict
 from random import shuffle
 from pprint import pprint
 from string import punctuation
+from urllib import quote_plus
+from urllib2 import unquote
 
 from sklearn.svm import SVC
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -33,20 +35,26 @@ def split_camelcase(s):
     ret.append(''.join(word))
     return ret
     
-def get_sentence_classifier(predicate, confidence_level=None):
-    if confidence_level:
-        return SentenceClassifier(predicate, confidence_level)
-    return SentenceClassifier(predicate)
+def get_sentence_classifier(predicate):
+    try:
+        ret = Pickler.load(models_cache_path % ('svmmodel-%s.pkl' % predicate))
+        ret.classifier.set_params(v__analyzer=lambda x: x)
+        return ret
+    except IOError:
+        return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate=None, confidence_level=.8):
-        if predicate is not None:
-            self.predicate = predicate
-            self.predicate_words = map(lambda w: w.lower(), split_camelcase(predicate))
-            self.confidence_level = confidence_level
-            self.train()
+    def __init__(self, predicate, confidence_level=.7):
+        self.predicate = predicate
+        self.predicate_words = map(lambda w: w.lower(), split_camelcase(unquote(predicate)))
+        self.confidence_level = confidence_level
+        self.train()
+        #pickle can't save a function, so it's removed before saving
+        self.classifier.set_params(v__analyzer=None)
+        Pickler.store(self, models_cache_path % ('svmmodel-%s.pkl' % predicate))
+        self.classifier.set_params(v__analyzer=lambda x: x)
 
-    def collect_features(self, sentences, threshold=5):
+    def collect_features(self, sentences, threshold=10):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
         vocabulary = defaultdict(int)
         for sentence in sentences:
@@ -59,6 +67,7 @@ class SentenceClassifier:
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate. Both types of sentences are returned, positive sentences contain also the value.'''
         positive, negative = [], []
+        types = ['stolica', 'hrabstwo', 'gmina', 'prowincja', quote_plus('województwo'), 'powiat', 'region']
         for subject, object in names:
             try:
                 article = get_article(subject)
@@ -66,15 +75,18 @@ class SentenceClassifier:
                 continue
             pos = []
             object = lt.prepare_value(object, self.predicate)
+            best_match = (0, '')
             for sentence in article:
                 lemmas = [word.lemma for word in sentence]
                 if any(o in lemmas for o in object):
-                    pos.append((sentence, object))
+                    if self.predicate not in types or any(p in [l for l in lemmas] for p in self.predicate_words):
+                        num_matches = len(set(lemmas) & set(object))
+                        if num_matches > best_match[0]:
+                            best_match = (num_matches, (sentence, object))
                 else:
                     negative.append(sentence)
-            if self.predicate == 'stolica':
-                pos = filter(lambda (s, _): any(word in [w.lemma for w in s] for word in self.predicate_words), pos)
-            positive += pos
+            if best_match[0]:
+                positive.append(best_match[1])
         assert len(positive) > 10, 'Too little training examples.'
         return positive, negative
         
@@ -85,13 +97,14 @@ class SentenceClassifier:
             )    
         else:
             names = select_all({'p': self.predicate})
-        new_names = []
-        values_added = set()
-        for e, v in names:
-            if v not in values_added:
-                values_added.add(v)
-                new_names.append((e, v))
-        names = new_names
+        if len(names) > training_limit:        
+            new_names = []
+            values_added = set()
+            for e, v in names:
+                if v not in values_added:
+                    values_added.add(v)
+                    new_names.append((e, v))
+            names = new_names
         names = names[: training_limit]
         if verbose:
             print '%d articles processed during training.' % len(names)
@@ -125,9 +138,6 @@ class SentenceClassifier:
         ]) 
         self.classifier.fit(map(self.get_features, sentences), classes)
         self.get_most_informative_features()
-        self.entities = set(
-            e for e, v in names
-        )
         
     def get_most_informative_features(self, n=10):
         #works only with a linear kernel
@@ -136,7 +146,7 @@ class SentenceClassifier:
             clf = self.classifier.named_steps['c']
             feature_relevance = list(reversed(sorted(zip(clf.coef_[0].toarray()[0], vectorizer.get_feature_names()))))[:n]
             #filter out nondiscriminating features
-            feature_relevance = filter(lambda (v, _): v >= 1, feature_relevance)
+            feature_relevance = filter(lambda (v, _): v >= .5, feature_relevance)
             if verbose:
                 print 'Most informative features:'
                 for value, name in feature_relevance:
@@ -173,10 +183,8 @@ class SentenceClassifier:
         return extracted_sentences
         
     def get_features(self, sentence):
-        lemmas = [word.lemma for word in sentence]
-        hypernyms = []
-        for word in sentence:
-            hypernyms += lt.get_hypernyms(word)
-        lemmas += hypernyms
-        return filter(lambda w: w.decode('utf-8').isalpha() and w not in stop_words, lemmas)
+        return filter(
+            lambda w: w.decode('utf-8')[0].islower() and w not in stop_words, 
+            [word.lemma for word in sentence]
+        )
        

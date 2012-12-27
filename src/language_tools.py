@@ -10,12 +10,14 @@ from string import digits, punctuation
 from locale import atof, setlocale, LC_NUMERIC
 import lxml.etree as etree
 from collections import namedtuple
-from nltk.corpus import wordnet as wn
 
-from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser, parser_type, maltparser_path
-from construct_synonym_set import get_synonyms
+from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser, parser_type, maltparser_path, use_wordnet
 from pickler import Pickler
+from polish_stop_words import stop_words
 
+if use_wordnet:
+    from nltk.corpus import wordnet as wn
+stop_words = set(stop_words)
 Word = namedtuple('Word', ['segment', 'lemma', 'tag', 'parse'])
 article_sentence_limit = 10
 
@@ -40,7 +42,8 @@ class LanguageToolsFactory:
         
 class LanguageTools:
     def __init__(self):
-        self.entities = Pickler.load(entities_path)
+        from collect_entities import collect_entities
+        self.entities = collect_entities()
         
     def is_entity(self, segment):
         return segment in self.entities
@@ -61,6 +64,7 @@ class PolishTools(LanguageTools):
                 sentence = []
             elif elem.tag == 'tok':
                 segment = elem.getchildren()[0].text.encode('utf-8')
+                #Default lemma and tag
                 lemma = segment
                 tag = 'ign'
                 for interp in elem.iterchildren():
@@ -139,25 +143,28 @@ class PolishTools(LanguageTools):
         return article
         
     def correct_lemmas(self, article, link_dictionary):
-        '''Corrects lemmatization by using Wikipedia anchor links.'''
-        for i, sentence in enumerate(article):
-            for j, word in enumerate(sentence):
-                if word.segment == 'woj' and j+1 < len(sentence) and sentence[j+1].lemma == '.':
-                    sentence[j] = Word(word.segment, 'województwo', word.tag, word.parse)
-                    article[i] = sentence[: j+1] + sentence[j+2 :]
+        '''Corrects lemmatization by using Wikipedia anchor links and some predefined rules.'''
         for i, sentence in enumerate(article):
             for j, word in enumerate(sentence):
                 if word.segment in link_dictionary:
                     lemma_suggested_by_link = link_dictionary[word.segment].encode('utf-8')
-                    if word.lemma[0].isupper() and word.lemma != lemma_suggested_by_link:
-#                        if verbose:
-#                            print 'Lemma correction changed "%s" to "%s".' % (word.lemma, lemma_suggested_by_link)
+                    if word.lemma != lemma_suggested_by_link:
                         article[i][j] = Word(word.segment, lemma_suggested_by_link, word.tag, word.parse)
                 elif j > 0 and sentence[j-1].lemma == 'województwo' and word.segment[-1] == 'm':
                     article[i][j] = Word(word.segment, word.segment[:-1] + 'e', word.tag, word.parse)
                 elif j > 2 and sentence[j-3].lemma == 'województwo' and sentence[j-2].segment[-1] == 'o' and word.segment[-1] == 'm':
                     article[i][j] = Word(word.segment, word.segment[:-1] + 'e', word.tag, word.parse)
                     article[i][j-2] = Word(sentence[j-2].segment, sentence[j-2].segment, sentence[j-2].tag, sentence[j-2].parse)
+        for i, sentence in enumerate(article):
+            for j, word in enumerate(sentence):
+                #if word is in capital letters not at the beginning of a sentence, lemma should also be in capital letters
+                if j > 0 and word.segment.decode('utf-8')[0].isupper() and word.lemma.decode('utf-8')[0].islower():
+                    article[i][j] = Word(word.segment, word.segment, word.tag, word.parse)
+        for i, sentence in enumerate(article):
+            for j, word in enumerate(sentence):
+                if word.segment == 'woj' and j+1 < len(sentence) and sentence[j+1].lemma == '.':
+                    sentence[j] = Word(word.segment, 'województwo', word.tag, word.parse)
+                    article[i] = sentence[: j+1] + sentence[j+2 :]
         return article
         
     def prepare_article(self, article, link_dictionary):
@@ -196,9 +203,13 @@ class PolishTools(LanguageTools):
             #in Polish DBPedia a picture is often a part of a value 
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
             value = re.sub('\dpx', '', value)
-            values = ''.join((c if c.isalpha() else ' ') for c in value.decode('utf-8')).encode('utf-8').split()
-            values.append(value)
-            return filter(lambda v: len(v) > 1, values)
+            values = ''.join((c if c.isalpha() else ' ') for c in value).split()
+            if len(values) > 1:
+                values.append(value)
+            values = map(lambda v: v.encode('utf-8'), values)
+            values = filter(lambda v: len(v) > 1 and v not in stop_words, values)
+            values = filter(lambda v: v not in ['rzeka', 'potok', 'miasto', 'wieś'], values)
+            return values
         
     def run_nlptools(self, link_dictionaries):
         if use_parser:
@@ -334,6 +345,8 @@ class PolishTools(LanguageTools):
                 ret += hyper + hypernyms(hyper, level - 1)
             return ret
     
+        if not use_wordnet:
+            return []
         simple_tag = self.get_simple_tag(word.tag)
         if simple_tag:
             synsets = wn.synsets(word.lemma, simple_tag)
@@ -344,4 +357,4 @@ class PolishTools(LanguageTools):
 #assert PolishTools().prepare_value('ok. 34,5 km', 'd%C5%82ugo%C5%9B%C4%87')[0] == '34'
 #assert PolishTools().prepare_value('12,1 tys.', 'populacja')[0] == '12100'
 #assert PolishTools().prepare_value('0,9 mln.', 'populacja')[0] == '900000'
-assert PolishTools().prepare_value('warmińsko-mazurskie', 'stolica') == ['warmińsko', 'mazurskie', 'warmińsko-mazurskie']
+#assert PolishTools().prepare_value('warmińsko-mazurskie', 'stolica') == ['warmińsko', 'mazurskie', 'warmińsko-mazurskie']

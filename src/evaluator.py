@@ -49,14 +49,6 @@ class Evaluator:
                 fn.append(entity)
         return tp, fp, fn
         
-class SentenceClassifierEvaluator(Evaluator):
-    @staticmethod
-    def value_matches(true_values, suggested_sentence):
-        return any(
-            v in suggested_sentence
-            for v in true_values    
-        )
-        
 class ValueExtractorEvaluator(Evaluator):
     @staticmethod
     def value_matches(true_values, suggested_value):
@@ -75,12 +67,11 @@ def get_test_data(predicate):
             true_values[value[0]] = value[1:]
     return entities, true_values
       
-def run_evaluation(predicate, confidence_level=None):
+def run_evaluation(predicate):
     entities, true_values = get_test_data(predicate)
-    sc = get_sentence_classifier(predicate, confidence_level)
-    print 'Model trained on %d articles.' % len(sc.entities)
+    sc = get_sentence_classifier(predicate)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
-    print '%d entities were considered.' % len(entities)
+    print '%d entities were used in evaluation.' % len(entities)
     extracted_sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = ve.extract_values(extracted_sentences)
@@ -89,6 +80,9 @@ def run_evaluation(predicate, confidence_level=None):
     table_format = '%30s %30s %20s %10s'
     print 'Error table:'
     print table_format % ('Subject:', 'Gold standard values:', 'Extracted value:', 'Error:')
+    for entity, value in values.iteritems():
+        if entity not in true_values:
+            true_values[entity] = '-'
     for entity, true_value in true_values.iteritems():
         if entity in fp and entity in fn:
             err = 'FP/FN'

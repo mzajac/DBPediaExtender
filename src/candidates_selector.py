@@ -1,4 +1,5 @@
 #encoding: utf-8
+import sys
 from collections import defaultdict
 
 from config import candidates_cache_path, type_restrictions
@@ -20,9 +21,10 @@ class CandidatesSelector:
     def get_predominant_types(predicate, subject=True):
         if predicate in type_restrictions:
             return [full_type_name(type_restrictions[predicate])]
-        if predicate == 'stolica':
+        #limiting these relations to settlements only increases precision a lot
+        if predicate in ['stolica', 'gmina', 'region', 'prowincja', 'hrabstwo']:
             return [u'http://dbpedia.org/ontology/Settlement']
-        type_preciseness = .9
+        type_preciseness = .75
         types_list = select_types(predicate, subject)
         types_count = defaultdict(int)
         for types in types_list:
@@ -57,6 +59,12 @@ class CandidatesSelector:
                 types[0], 
                 predicate
             )
+            if predicate == 'gmina':
+                candidates = filter(lambda e: 'Gmina' not in e, candidates)
+            if predicate == 'powiat':
+                candidates = filter(lambda e: 'Powiat' not in e, candidates)
+            if predicate == 'hrabstwo':
+                candidates = filter(lambda e: 'hrabstwo_miejskie' not in e and 'Hrabstwo' not in e, candidates)
             Pickler.store(candidates, candidates_cache_path % predicate)
             return candidates
         else:

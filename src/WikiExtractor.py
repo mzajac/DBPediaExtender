@@ -60,7 +60,8 @@ prefix = 'http://it.wikipedia.org/wiki/'
 link_dictionary = {}
 from config import entities_path
 from pickler import Pickler
-entities = Pickler.load(entities_path)
+from collect_entities import collect_entities
+entities = collect_entities()
 
 class WikiDocument:
     def __init__(self):
@@ -425,10 +426,14 @@ class WikiExtractor:
     def __get_anchor_tag(self, document_title, link_text):
         if not link_text:
             return ''
-        link_name = unquote(get_wiki_document_url(document_title, '').replace('_', ' ')).decode('utf-8')
-        if link_text != link_name and link_name in entities and link_text[:2] == link_name[:2] and abs(len(link_text) - len(link_name)) < 3:
-            link_dictionary[link_text] = link_name
-        return link_text
+        link_text = link_text.replace(' ', '_')
+        link_name = unquote(get_wiki_document_url(document_title, ''))
+        if link_name in entities:
+            for t in link_text.split('_'):
+                for n in link_name.decode('utf-8').split('_'):
+                    if t[:2] == n[:2] and abs(len(t) - len(n)) < 4:
+                        link_dictionary[t] = n
+        return link_text.replace('_', ' ')
 
     def __handle_unicode(self, entity):
         numeric_code = int(entity[2:-1])

@@ -47,5 +47,3 @@ def collect_entities():
     Pickler.store(entities, entities_path)
     return entities
     
-if __name__ == '__main__':
-    collect_entities()

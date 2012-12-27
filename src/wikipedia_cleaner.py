@@ -18,5 +18,5 @@ def clean(text, we = WikiExtractor()):
         if line and line[0] not in ['=', ';', '*']:
             line = line.replace('()', '')
             new.append(line)
-    return unquote(''.join(new)).decode('utf-8'), link_dictionary
+    return ''.join(new).decode('utf-8'), link_dictionary
    

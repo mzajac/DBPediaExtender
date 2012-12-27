@@ -8,21 +8,13 @@ import lxml.etree as etree
 from pickler import Pickler
 from codecs import open as copen
 from os.path import join
-import fnmatch
 
-from config import entities_path, raw_articles_path, wikidump_path
-from language_tools import extract_shortened_name
+from config import entities_path, raw_articles_path, wikidump_path, articles_url
 from collect_entities import collect_entities
 
 def main():
     entities = collect_entities()
-    for f in files(wikidump_path):
-        parse(f, entities, raw_articles_path)
-            
-def files(dirname):
-    for root, _, files in os.walk(dirname):
-        for f in fnmatch.filter(files, '*.bz2'):
-            yield join(root, f)
+    parse(join(wikidump_path, articles_url.split('/')[-1]), entities, raw_articles_path)
             
 def parse(filename, entities, dirname):
     if not os.path.exists(dirname):
@@ -41,6 +33,3 @@ def parse(filename, entities, dirname):
         elem.clear()
     f.close()
     
-if __name__ == '__main__':
-    main()
-

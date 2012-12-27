@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+#encoding: utf-8
 import sys
 import os
 import errno
 from itertools import izip
 from collections import defaultdict
 from random import shuffle
+from urllib import quote_plus
 
 from config import tests_path, predicates, type_restrictions
 from sparql_access import select_all, select_entities_of_type_in_relation
@@ -14,7 +16,7 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = 'prowincja'
+    predicate = quote_plus('stan')
     test_data_limit = 100
     try:
         os.makedirs(tests_path + '%s' % predicate)
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     if predicate in type_restrictions:
         names = select_entities_of_type_in_relation(
             type_restrictions[predicate], predicate
-        )    
+        )
     else:
         names = select_all({'p': predicate})
     shuffle(names)
@@ -48,5 +50,5 @@ if __name__ == '__main__':
             print >>articles_f, ' '.join(sentence)
         print >>articles_f
         print >>entities_f, subject
-        print >>values_f, subject, value[0].replace(' ', '_')
+        print >>values_f, subject, value[0].replace(' ', '_').encode('utf-8')
 

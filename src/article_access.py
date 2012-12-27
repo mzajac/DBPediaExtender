@@ -18,7 +18,7 @@ class ArticleNotFoundError(BaseException):
 def get_raw_article(name):
     try:
         f = copen(join(raw_articles_path, name), encoding='utf-8')
-        return clean(f.read())
+        return clean(f.read())[: article_sentence_limit]
     except IOError:
         raise ArticleNotFoundError(name)
 
@@ -44,6 +44,7 @@ def prepare_articles(names):
             except ArticleNotFoundError:
                 continue
             found = True
+            article = '\n'.join(article.split('\n')[: article_sentence_limit])
             out = copen(join(raw_articles_path, '%d.txt' % i), 'w', 'utf-8')
             print >>out, article
     if found:

@@ -15,16 +15,16 @@
     DBPedia-extender is released under the GNU General Public License v3.
 
     \section{Prerequisites}
-    Note: the system was tested under versions listed. It may also work under different versions.\\
-    Software:
+    Software (versions tested):
     \begin{itemize}
         \item Python 2.6 or 2.7
-        \item NTLK 2
         \item scikit-learn 0.11
         \item OpenLink Virtuoso (Open-Source Edition) 6.1.4
         \item crfsuite 0.12
         \item pantera-tagger 0.9
         \item (optionally) spejd 1.3.6
+        \item (optionally) maltparser 1.7.1
+        \item (optionally) NTLK 2 and Polish Wordnet 1.5
     \end{itemize}
     Data:
     \begin{itemize}
@@ -36,28 +36,26 @@
     DBPedia-extender is a pure python system, therefore it doesn't require any installation.
     However it relies on availability of two resources: a DBPedia server and Wikipedia articles.
     \subsection{DBPedia}
-    The program queries a given DBPedia server endpoint over http. It can use any endpoint, however in practice, it is necessary to create a local DBPedia server.
-    The process of installing and configuring the server is well described at apohllo.pl/blog/virtuoso-installation-in-debian.
-    The Polish DBPedia dumps are not available at the Polish DBPedia website (pl.dbpedia.org). However, the Polish DBPedia maintainer (the Knowledge Hives – knowledgehives.com) gives access to the data, when asked.
+    The program queries a given DBPedia server endpoint over http. It can use any endpoint, however in practice, it is necessary to create a local DBPedia server.\\
+    The process of installing and configuring the server is well described at apohllo.pl/blog/virtuoso-installation-in-debian.\\
+    The Polish DBPedia dumps are not available at the Polish DBPedia website (pl.dbpedia.org). However, the Polish DBPedia maintainer (the Knowledge Hives – knowledgehives.com) gives access to the data when asked.\\
     \subsection{Wikipedia}
-    Polish Wikipedia dumps are available at dumps.wikimedia.org/plwiki/latest.
-    The user is required to download the pages-articles archieve to the data/pl/wiki/ directory.\\
-    Note that the Wikipedia dumps should be the same dumps from which DBPedia was extracted.
+    When run for the first time the program will download the pages-articles archive and then extract articles from it.\\
+    This task may take a few hours.
     \section{Usage}
     ./dbpedia-enricher\\
     The src/ directory contains a configuration file (config.py), in which the user can set:
     \begin{itemize}
         \item verbosity level,
         \item which predicates to learn,
-        \item whether to use a shallow parser,
+        \item whether to use a parser,
         \item program mode (explained below).
     \end{itemize}
     The program can run in two modes:
     \begin{itemize}
-        \item Extraction - the program trains on available data and generates a list of RDF triples that can be imported into DBPedia.
-        \item Evaluation - the program trains on available data and then using manually annotated data, evaluates its performance.
+        \item Extraction(default) - the program trains on available data and generates a list of RDF triples that can be imported into DBPedia.\\ The triples extracted are stored in the results/ directory.
+        \item Evaluation - the program trains on available data and then using manually annotated data, evaluates its performance. \\Program is distributed with manually annotated data for several predicates (in the tests/ directory).
     \end{itemize}
-    
 \end{document}
 
 
