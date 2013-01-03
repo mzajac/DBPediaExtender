@@ -14,20 +14,20 @@ from collections import namedtuple
 from config import lang, numeric_predicates, entities_path, raw_articles_path, verbose, spejd_path, use_parser, parser_type, maltparser_path, use_wordnet
 from pickler import Pickler
 from polish_stop_words import stop_words
+from collect_entities import collect_entities
 
 if use_wordnet:
     from nltk.corpus import wordnet as wn
 stop_words = set(stop_words)
 Word = namedtuple('Word', ['segment', 'lemma', 'tag', 'parse'])
 article_sentence_limit = 10
+#set ',' as decimal character
 
-def extract_shortened_name(name):
-    return re.split(',|\(', name.replace('_', ' '))[0]
-    
 def is_numeric(s):
     if s.lower() in ['infinity', 'nan']:
         return False
     try:
+        setlocale(LC_NUMERIC, 'pl_PL.UTF-8')
         atof(s)
         return True
     except ValueError:
@@ -42,7 +42,6 @@ class LanguageToolsFactory:
         
 class LanguageTools:
     def __init__(self):
-        from collect_entities import collect_entities
         self.entities = collect_entities()
         
     def is_entity(self, segment):
@@ -51,8 +50,6 @@ class LanguageTools:
 
 class PolishTools(LanguageTools):
     def __init__(self):
-        #set ',' as decimal character
-        setlocale(LC_NUMERIC, 'pl_PL.UTF-8')
         LanguageTools.__init__(self)
 
     def parse_disamb_file(self, f):
@@ -64,7 +61,7 @@ class PolishTools(LanguageTools):
                 sentence = []
             elif elem.tag == 'tok':
                 segment = elem.getchildren()[0].text.encode('utf-8')
-                #Default lemma and tag
+                #default lemma and tag
                 lemma = segment
                 tag = 'ign'
                 for interp in elem.iterchildren():
@@ -147,27 +144,23 @@ class PolishTools(LanguageTools):
         for i, sentence in enumerate(article):
             for j, word in enumerate(sentence):
                 if word.segment in link_dictionary:
-                    lemma_suggested_by_link = link_dictionary[word.segment].encode('utf-8')
+                    lemma_suggested_by_link = link_dictionary[word.segment]
                     if word.lemma != lemma_suggested_by_link:
                         article[i][j] = Word(word.segment, lemma_suggested_by_link, word.tag, word.parse)
-                elif j > 0 and sentence[j-1].lemma == 'województwo' and word.segment[-1] == 'm':
-                    article[i][j] = Word(word.segment, word.segment[:-1] + 'e', word.tag, word.parse)
-                elif j > 2 and sentence[j-3].lemma == 'województwo' and sentence[j-2].segment[-1] == 'o' and word.segment[-1] == 'm':
-                    article[i][j] = Word(word.segment, word.segment[:-1] + 'e', word.tag, word.parse)
-                    article[i][j-2] = Word(sentence[j-2].segment, sentence[j-2].segment, sentence[j-2].tag, sentence[j-2].parse)
+                if article[i][j].lemma == 'Województwo':
+                     article[i][j] = Word(word.segment, 'województwo', word.tag, word.parse)
         for i, sentence in enumerate(article):
             for j, word in enumerate(sentence):
                 #if word is in capital letters not at the beginning of a sentence, lemma should also be in capital letters
                 if j > 0 and word.segment.decode('utf-8')[0].isupper() and word.lemma.decode('utf-8')[0].islower():
                     article[i][j] = Word(word.segment, word.segment, word.tag, word.parse)
-        for i, sentence in enumerate(article):
-            for j, word in enumerate(sentence):
-                if word.segment == 'woj' and j+1 < len(sentence) and sentence[j+1].lemma == '.':
-                    sentence[j] = Word(word.segment, 'województwo', word.tag, word.parse)
-                    article[i] = sentence[: j+1] + sentence[j+2 :]
         return article
         
     def prepare_article(self, article, link_dictionary):
+        link_dictionary = {
+            k.encode('utf-8'): v.encode('utf-8')
+            for k, v in link_dictionary.iteritems()
+        }
         return self.join_numerals(
             self.correct_lemmas(article, link_dictionary)
         )
@@ -203,6 +196,7 @@ class PolishTools(LanguageTools):
             #in Polish DBPedia a picture is often a part of a value 
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
             value = re.sub('\dpx', '', value)
+            value = value.decode('utf-8')
             values = ''.join((c if c.isalpha() else ' ') for c in value).split()
             if len(values) > 1:
                 values.append(value)
@@ -236,8 +230,11 @@ class PolishTools(LanguageTools):
             return
         articles = {}
         for f in glob.glob('%s/*.disamb' % raw_articles_path):
-            i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
-            articles[i] = self.prepare_article(self.parse_disamb_file(f), link_dictionaries[i])
+            try:
+                i = int(f[len(raw_articles_path)+1 : -len('.txt.disamg')])
+                articles[i] = self.prepare_article(self.parse_disamb_file(f), link_dictionaries[i])
+            except ValueError:
+                continue
         return articles
         
     def run_spejd(self, link_dictionaries):
@@ -249,8 +246,11 @@ class PolishTools(LanguageTools):
         chdir(old_path)
         articles = {}
         for f in glob.glob('%s/*.spejd' % raw_articles_path):
-            i = int(f[len(raw_articles_path)+1 : -len('.txt.spejd')])
-            articles[i] = self.prepare_article(self.parse_spejd_file(f), link_dictionaries[i])
+            try:
+                i = int(f[len(raw_articles_path)+1 : -len('.txt.spejd')])
+                articles[i] = self.prepare_article(self.parse_spejd_file(f), link_dictionaries[i])
+            except ValueError:
+                continue
         return articles
         
     def run_dependency_parser(self, articles):
@@ -358,3 +358,4 @@ class PolishTools(LanguageTools):
 #assert PolishTools().prepare_value('12,1 tys.', 'populacja')[0] == '12100'
 #assert PolishTools().prepare_value('0,9 mln.', 'populacja')[0] == '900000'
 #assert PolishTools().prepare_value('warmińsko-mazurskie', 'stolica') == ['warmińsko', 'mazurskie', 'warmińsko-mazurskie']
+#assert is_numeric('50,3')

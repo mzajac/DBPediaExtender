@@ -44,7 +44,7 @@ def get_sentence_classifier(predicate):
         return SentenceClassifier(predicate)
     
 class SentenceClassifier:
-    def __init__(self, predicate, confidence_level=.7):
+    def __init__(self, predicate, confidence_level=.75):
         self.predicate = predicate
         self.predicate_words = map(lambda w: w.lower(), split_camelcase(unquote(predicate)))
         self.confidence_level = confidence_level
@@ -97,7 +97,7 @@ class SentenceClassifier:
             )    
         else:
             names = select_all({'p': self.predicate})
-        if len(names) > training_limit:        
+        if len(names) > training_limit and self.predicate not in [quote_plus('województwo')]:
             new_names = []
             values_added = set()
             for e, v in names:

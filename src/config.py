@@ -3,11 +3,11 @@
 from urllib import quote_plus
 import os
 
-verbose = True
+verbose = 1
 #evaluation mode: 0 -> no evaluation, 1 -> performs evaluation using data from the tests/ directory
 evaluation_mode = 1
 #limits number of candidates for learning
-candidates_limit = 1000000
+candidates_limit = 100000000
 #limits number of triples used in training
 training_limit = 10000
 #use Wordnet synsets as features
@@ -23,7 +23,6 @@ predicates = [
     'uchodziDo',
     'gmina',
     'powiat',
-    'województwo',
     'region',
     'prowincja',
     'długość',
@@ -33,7 +32,7 @@ predicates = [
     'gęstość',
     'powierzchnia',
     'stan',
-][14:15]
+][2:3]
 predicates = map(quote_plus, predicates)
 numeric_predicates = set(map(quote_plus, ['populacja', 'długość', 'powDorzecza', 'średniPrzepływ', 'gęstość', 'powierzchnia']))
 

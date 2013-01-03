@@ -20,7 +20,7 @@ def learn_new_triples(predicate):
     entities = entities[: candidates_limit]
     if verbose:
         print '%s candidates identified' % len(entities)
-    n = 10000
+    n = 1000
     entities_list = [
         entities[i*n : (i+1)*n] 
         for i in xrange(int(ceil(len(entities) / n)))

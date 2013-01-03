@@ -11,7 +11,6 @@ from urllib2 import urlopen, Request, unquote
 from sparql_access import full_type_name, select_entities_of_type
 from config import entities_path
 from pickler import Pickler
-from language_tools import extract_shortened_name
 from config import data_source, sparql_endpoint
 
 entities_types = [

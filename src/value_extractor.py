@@ -4,7 +4,7 @@ import sys
 from codecs import open as copen
 from subprocess import Popen, PIPE
 from itertools import izip
-from locale import atof
+from locale import atof, setlocale, LC_NUMERIC
 from urllib import quote_plus
 
 from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode
@@ -61,7 +61,6 @@ class ValueExtractor:
                     'segm_starts_with_capital': str(int(segment.decode('utf-8')[0].isupper())),
                     'numeric': str(int(is_numeric(lemma))),
                     'len': str(len(lemma)),
-                    'len<': str(int(len(lemma) < 4)),
                 }
                 if use_parser:
                     word_features['parse'] = word.parse
@@ -111,7 +110,8 @@ class ValueExtractor:
             print '%s %s' % (weight, feature)
         print
 
-    def extract_values(self, extracted_sentences, confidence_level=.75):
+    def extract_values(self, extracted_sentences, confidence_level=.6):
+        setlocale(LC_NUMERIC, 'pl_PL.UTF-8')
         sentences = [
             sentence
             for entity, sentences in extracted_sentences.iteritems()
@@ -163,6 +163,10 @@ class ValueExtractor:
             values = filter(lambda (_, p): p > confidence_level, values)
             values.sort(key=lambda (_, p): -p)
             values = map(lambda (v, p): (str(int(atof(v))) if is_numeric(v) else v, p), values)
+            values = map(
+                lambda (v, p): ((v.decode('utf-8')[0].upper() + v.decode('utf-8')[1:]).encode('utf-8') if '_' in v else v, p), 
+                values
+            )
             if verbose:
                 print entity, values
             values = [v for v, _ in values]
@@ -171,7 +175,7 @@ class ValueExtractor:
                     extracted_values[entity] = values[0]
                     continue
                 #to increase precision of extraction (at the cost of recall) in textual relations, 
-                #only values that are geographic entities in DBPedia are extracted_valuesurned
+                #only values that are geographic entities in DBPedia are returned
                 values_identified_as_entities = [
                     v for v in values if lt.is_entity(v)
                 ]

@@ -31,7 +31,6 @@ class Evaluator:
         tp, fp, fn = cls.classify_by_error_type(true_values, values)
         s = Stats(len(tp), len(fp), len(fn))
         print s
-        print
         return s, fp, fn
     
     @classmethod
@@ -71,11 +70,12 @@ def run_evaluation(predicate):
     entities, true_values = get_test_data(predicate)
     sc = get_sentence_classifier(predicate)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
-    print '%d entities were used in evaluation.' % len(entities)
+    if verbose:
+        print '%d entities were used in evaluation.' % len(entities)
     extracted_sentences = sc.extract_sentences(entities)
     ve = ValueExtractor(predicate, sc.extractor_training_data)
     values = ve.extract_values(extracted_sentences)
-    print 'Results:'
+    print '%s results:' % predicate
     stats, fp, fn = ValueExtractorEvaluator.evaluate(true_values, values)
     table_format = '%30s %30s %20s %10s'
     print 'Error table:'
@@ -93,5 +93,6 @@ def run_evaluation(predicate):
         else:
             err = ''
         print table_format % (entity[:30], ', '.join(true_value), values[entity] if entity in values else '-', err)
+    print '\n\n'
     return stats
     

@@ -241,6 +241,8 @@ class WikiExtractor:
         return wiki_document
 
     def __clean(self, wiki_document):
+        #MZ, treat the article title as a link
+        wiki_document.text = wiki_document.text.replace("'''", '[[', 1).replace("'''", ']]', 1)
         # Rende maggiormente riconoscibili i tag
         wiki_document.text = wiki_document.text.replace('&lt;', '<').replace('&gt;', '>')
         wiki_document.text = wiki_document.text.replace('<<', u'«').replace('>>', u'»')
@@ -424,15 +426,34 @@ class WikiExtractor:
         return article_title, link_text
 
     def __get_anchor_tag(self, document_title, link_text):
+        def longer_common_prefix(s1, s2, pattern):
+            for i in xrange(min([len(s1), len(s2), len(pattern)])):
+                if s2[i] != pattern[i]:
+                    return s1
+                if s1[i] != pattern[i]:
+                    return s2
+            return s1 if len(s1) >= len(s2) else s2
+    
         if not link_text:
             return ''
         link_text = link_text.replace(' ', '_')
         link_name = unquote(get_wiki_document_url(document_title, ''))
         if link_name in entities:
-            for t in link_text.split('_'):
-                for n in link_name.decode('utf-8').split('_'):
-                    if t[:2] == n[:2] and abs(len(t) - len(n)) < 4:
-                        link_dictionary[t] = n
+            ts = link_text.split('_')
+            for t in ts:
+                if '-' in t:
+                    ts += t.split('-')
+            for t in ts:
+                ns = link_name.decode('utf-8').split('_')
+                for n in ns:
+                    if '-' in n:
+                        ns += n.split('-')
+                for n in ns:
+                    if t.lower()[:2] == n.lower()[:2]:
+                        if t in link_dictionary:
+                            link_dictionary[t] = longer_common_prefix(link_dictionary[t], n, t)                        
+                        else:
+                            link_dictionary[t] = n
         return link_text.replace('_', ' ')
 
     def __handle_unicode(self, entity):
@@ -618,7 +639,6 @@ def main():
     wiki_extractor = WikiExtractor()
     output_splitter = OutputSplitter(compress, file_size, output_dir)
     process_data(sys.stdin, wiki_extractor, output_splitter)
-
     output_splitter.close()
 
 if __name__ == '__main__':
