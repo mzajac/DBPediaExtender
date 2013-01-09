@@ -14,7 +14,7 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 
-from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode, numeric_predicates, type_restrictions
+from config import articles_cache_path, models_cache_path, training_limit, verbose, evaluation_mode, numeric_predicates, type_restrictions, save_to_cache
 from sparql_access import select_all, select_entities_of_type_in_relation
 from pickler import Pickler
 from language_tools import LanguageToolsFactory
@@ -35,27 +35,33 @@ def split_camelcase(s):
     ret.append(''.join(word))
     return ret
     
-def get_sentence_classifier(predicate):
+def get_sentence_classifier(predicate, sentence_limit=None):
     try:
         ret = Pickler.load(models_cache_path % ('svmmodel-%s.pkl' % predicate))
         ret.classifier.set_params(v__analyzer=lambda x: x)
         return ret
     except IOError:
-        return SentenceClassifier(predicate)
+        return SentenceClassifier(predicate, sentence_limit)
     
 class SentenceClassifier:
-    def __init__(self, predicate, confidence_level=.75):
+    def __init__(self, predicate, sentence_limit = None, confidence_level=.75):
         self.predicate = predicate
         self.predicate_words = map(lambda w: w.lower(), split_camelcase(unquote(predicate)))
         self.confidence_level = confidence_level
+        self.sentence_limit = sentence_limit
         self.train()
-        #pickle can't save a function, so it's removed before saving
-        self.classifier.set_params(v__analyzer=None)
-        Pickler.store(self, models_cache_path % ('svmmodel-%s.pkl' % predicate))
-        self.classifier.set_params(v__analyzer=lambda x: x)
+        if save_to_cache:
+            #pickle can't save a function, so it's removed before saving
+            self.classifier.set_params(v__analyzer=None)
+            Pickler.store(self, models_cache_path % ('svmmodel-%s.pkl' % predicate))
+            self.classifier.set_params(v__analyzer=lambda x: x)
 
     def collect_features(self, sentences, threshold=10):
         '''creates a vocabulary of words occurring in the sentences that occur more than threshold times'''
+        if self.sentence_limit < 100:
+            threshold = 2
+        elif self.sentence_limit < 1000:
+            threshold = 5
         vocabulary = defaultdict(int)
         for sentence in sentences:
             for feature in self.get_features(sentence):
@@ -67,7 +73,7 @@ class SentenceClassifier:
     def collect_sentences(self, names):
         '''classifies all sentences based on the fact that they contain a reference to the subject of the article, the searched value and if there is more than one such sentence in an article also to at least part of the predicate. Both types of sentences are returned, positive sentences contain also the value.'''
         positive, negative = [], []
-        types = ['stolica', 'hrabstwo', 'gmina', 'prowincja', quote_plus('województwo'), 'powiat', 'region']
+        types = ['hrabstwo', 'gmina', 'prowincja', quote_plus('województwo'), 'powiat', 'region']
         for subject, object in names:
             try:
                 article = get_article(subject)
@@ -115,6 +121,7 @@ class SentenceClassifier:
         #prepare articles about subjects
         prepare_articles(zip(*names)[0])
         positive, negative = self.collect_sentences(names)
+        positive = positive[: self.sentence_limit]
         if verbose:
             print 'Sentences selected for training (%d total):' % len(positive)
             for s, v in positive:

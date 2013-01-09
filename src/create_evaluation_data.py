@@ -16,7 +16,7 @@ from language_tools import LanguageToolsFactory
 
 if __name__ == '__main__':
     lt = LanguageToolsFactory.get_language_tools()
-    predicate = quote_plus('stan')
+    predicate = ''
     test_data_limit = 100
     try:
         os.makedirs(tests_path + '%s' % predicate)

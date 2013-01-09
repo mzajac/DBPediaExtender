@@ -6,7 +6,7 @@ from itertools import izip
 from urllib import quote_plus
 from math import ceil
 
-from config import results_path, predicates, evaluation_mode, candidates_limit, verbose
+from config import results_path, predicates, evaluation_mode, candidates_limit, verbose, numeric_predicates
 from sentence_classifier import get_sentence_classifier, SentenceClassifier
 from candidates_selector import CandidatesSelector
 from value_extractor import ValueExtractor
@@ -16,6 +16,10 @@ from sparql_access import full_predicate_name, full_resource_name
 def learn_new_triples(predicate):
     """learns new triples and stores them in a file"""
     sc = get_sentence_classifier(predicate)
+    if predicate in numeric_predicates:
+        pattern = '<%s> <%s> "%s"^^<http://www.w3.org/2001/XMLSchema#int> .'
+    else:
+        pattern = '<%s> <%s> "%s"@pl .'
     entities = CandidatesSelector.get_candidates(predicate)
     entities = entities[: candidates_limit]
     if verbose:
@@ -32,8 +36,8 @@ def learn_new_triples(predicate):
         values = ve.extract_values(extracted_sentences)
         for e, v in values.iteritems():
             if v:
-                print >>out, '<%s> <%s> "%s"@pl .' % (
-                    full_resource_name(quote_plus(e)).encode('utf-8'), 
+                print >>out, pattern % (
+                    full_resource_name(e).encode('utf-8'), 
                     full_predicate_name(predicate).encode('utf-8'), 
                     v
                 )

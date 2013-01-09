@@ -7,7 +7,7 @@ from itertools import izip
 from locale import atof, setlocale, LC_NUMERIC
 from urllib import quote_plus
 
-from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode
+from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode, save_to_cache
 from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 from candidates_selector import CandidatesSelector
@@ -90,7 +90,7 @@ class ValueExtractor:
         if verbose:
             self.print_most_informative_features()
         
-    def print_most_informative_features(self, n=50):
+    def print_most_informative_features(self, n=100):
         command = 'crfsuite dump %s' % (models_cache_path % self.model_filename)
         p = Popen(command, stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
         out, _ = p.communicate()
@@ -110,7 +110,7 @@ class ValueExtractor:
             print '%s %s' % (weight, feature)
         print
 
-    def extract_values(self, extracted_sentences, confidence_level=.6):
+    def extract_values(self, extracted_sentences, confidence_level=.8):
         setlocale(LC_NUMERIC, 'pl_PL.UTF-8')
         sentences = [
             sentence
@@ -156,7 +156,7 @@ class ValueExtractor:
                         v = '_'.join(value).replace('_-_', '-')
                         value = []
                         #gmina can have the same name as its main city (in fact, it very often does)
-                        if v != entity or self.predicate in ['gmina']:
+                        if v.decode('utf-8')[:4] != entity.decode('utf-8')[:4] or self.predicate in ['gmina']:
                             values.append((v, value_prob))
                         value_prob = 1
             #sort by decreasing probabilities
@@ -193,5 +193,10 @@ class ValueExtractor:
                     extracted_values[entity] = values_identified_as_entities[0]
                 elif self.predicate in ['gmina', 'powiat', quote_plus('województwo'), 'hrabstwo', 'stan']:
                     extracted_values[entity] = values[0]
+        if not save_to_cache:
+            try:
+                os.remove(models_cache_path % self.model_filename)
+            except IOError:
+                pass
         return extracted_values
                    

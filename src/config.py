@@ -4,12 +4,13 @@ from urllib import quote_plus
 import os
 
 verbose = 1
+save_to_cache = 1
 #evaluation mode: 0 -> no evaluation, 1 -> performs evaluation using data from the tests/ directory
 evaluation_mode = 1
 #limits number of candidates for learning
 candidates_limit = 100000000
 #limits number of triples used in training
-training_limit = 10000
+training_limit = 20000
 #use Wordnet synsets as features
 use_wordnet = False
 #use a parser (this increases running time)
@@ -34,14 +35,15 @@ predicates = [
     'stan',
 ][2:3]
 predicates = map(quote_plus, predicates)
-numeric_predicates = set(map(quote_plus, ['populacja', 'długość', 'powDorzecza', 'średniPrzepływ', 'gęstość', 'powierzchnia']))
+numeric_predicates = set(map(quote_plus, ['populacja', 'długość', 'powDorzecza', 'średniPrzepływ', 'gęstość', 'powierzchnia', 'gęstośćŚrednia', 'szerokość']))
 
 #Some predicates are too broad and it's necessary to specify we are only interested in entities of specific type.
 type_restrictions = {
     quote_plus('długość'): 'Stream',
     quote_plus('gęstość'): 'PopulatedPlace',
+    quote_plus('szerokość'): 'Stream',
     'powierzchnia': 'PopulatedPlace',
-    'stan': 'Place',
+    'stan': 'Settlement',
 }
 
 sparql_endpoint = 'http://localhost:8890/sparql/'

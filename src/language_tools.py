@@ -196,7 +196,10 @@ class PolishTools(LanguageTools):
             #in Polish DBPedia a picture is often a part of a value 
             #and it is saved as e.g. "20px Neapol" where "Neapol" is the right value
             value = re.sub('\dpx', '', value)
-            value = value.decode('utf-8')
+            try:
+                value = value.decode('utf-8')
+            except UnicodeEncodeError:
+                pass
             values = ''.join((c if c.isalpha() else ' ') for c in value).split()
             if len(values) > 1:
                 values.append(value)

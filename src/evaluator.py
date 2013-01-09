@@ -66,9 +66,9 @@ def get_test_data(predicate):
             true_values[value[0]] = value[1:]
     return entities, true_values
       
-def run_evaluation(predicate):
+def run_evaluation(predicate, sentence_limit=None):
     entities, true_values = get_test_data(predicate)
-    sc = get_sentence_classifier(predicate)
+    sc = get_sentence_classifier(predicate, sentence_limit)
     true_values = dict((k, v) for k, v in true_values.iteritems() if k in entities)
     if verbose:
         print '%d entities were used in evaluation.' % len(entities)
@@ -96,3 +96,19 @@ def run_evaluation(predicate):
     print '\n\n'
     return stats
     
+def incremental_evaluation(predicate):
+    from collections import defaultdict
+    precision = defaultdict(int)
+    recall = defaultdict(int)
+    n = 10
+    x = [10, 25, 50, 100, 250, 500, 1000, 2500]
+    for _ in xrange(n):
+        for limit in x:
+            s = run_evaluation(predicate, limit)
+            precision[limit] += s.precision
+            recall[limit] += s.recall
+    precision = [v/n for _, v in sorted(list(precision.iteritems()))]
+    recall = [v/n for _, v in sorted(list(recall.iteritems()))]
+    print precision
+    print recall    
+        
