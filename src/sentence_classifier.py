@@ -44,7 +44,7 @@ def get_sentence_classifier(predicate, sentence_limit=None):
         return SentenceClassifier(predicate, sentence_limit)
     
 class SentenceClassifier:
-    def __init__(self, predicate, sentence_limit = None, confidence_level=.75):
+    def __init__(self, predicate, sentence_limit = None, confidence_level=.7):
         self.predicate = predicate
         self.predicate_words = map(lambda w: w.lower(), split_camelcase(unquote(predicate)))
         self.confidence_level = confidence_level

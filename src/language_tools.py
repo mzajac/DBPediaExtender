@@ -338,8 +338,8 @@ class PolishTools(LanguageTools):
     def get_aspect(self, tag):
         return tag.split(':')[3] if self.get_simple_tag(tag) == 'v' else ''
         
-    def get_hypernyms(self, word):
-        def hypernyms(synsets, level=1):
+    def get_hypernym(self, word, level=1):
+        def hypernyms(synsets, level):
             if level == 0:
                 return []
             ret = []
@@ -351,11 +351,12 @@ class PolishTools(LanguageTools):
         if not use_wordnet:
             return []
         simple_tag = self.get_simple_tag(word.tag)
+
         if simple_tag:
             synsets = wn.synsets(word.lemma, simple_tag)
         else:
             synsets = wn.synsets(word.lemma)
-        return map(lambda s: s.name, synsets)
+        return map(lambda s: s.name, synsets)[0]
 
 #assert PolishTools().prepare_value('ok. 34,5 km', 'd%C5%82ugo%C5%9B%C4%87')[0] == '34'
 #assert PolishTools().prepare_value('12,1 tys.', 'populacja')[0] == '12100'

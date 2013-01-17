@@ -7,7 +7,7 @@ from itertools import izip
 from locale import atof, setlocale, LC_NUMERIC
 from urllib import quote_plus
 
-from config import models_cache_path, verbose, numeric_predicates, use_parser, evaluation_mode, save_to_cache
+from config import models_cache_path, verbose, numeric_predicates, use_parser, use_wordnet, evaluation_mode, save_to_cache
 from language_tools import LanguageToolsFactory, is_numeric
 from collect_entities import entities_types
 from candidates_selector import CandidatesSelector
@@ -64,6 +64,8 @@ class ValueExtractor:
                 }
                 if use_parser:
                     word_features['parse'] = word.parse
+                if use_wordnet:
+                    word_features['synset'] = get_hypernym(word)
                 for name, feature in word_features.iteritems():
                     features['%d%s' % (j, name)] = feature
         return features

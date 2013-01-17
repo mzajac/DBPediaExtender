@@ -43,6 +43,8 @@ def collect_entities():
         entities_of_type = select_entities_of_type(full_type_name(type))
         for entity in entities_of_type:
             entities[entity].append(i)
+            if '_(' in entity:
+                entities[entity.split('_(')[0]].append(i)
     Pickler.store(entities, entities_path)
     return entities
-    
+
